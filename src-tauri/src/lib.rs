@@ -1,5 +1,6 @@
 // CubeXCraft Launcher - ядро (Rust/Tauri). Интерфейс - app/src (Svelte), общение через invoke-команды и события.
 mod api;
+mod cleanup;
 mod crypto;
 mod java;
 mod launch;
@@ -46,6 +47,18 @@ fn device() -> String {
 }
 
 impl AppState {
+    /// разовая уборка за старым лаунчером после первого успешного входа (cleanup.rs)
+    fn cleanup_gravit_once(&self) {
+        let mut s = self.settings.lock().unwrap();
+        if s.get("gravitCleaned").and_then(|v| v.as_bool()).unwrap_or(false) {
+            return;
+        }
+        s["gravitCleaned"] = json!(true);
+        drop(s);
+        self.save_settings();
+        std::thread::spawn(cleanup::run);
+    }
+
     fn save_settings(&self) {
         let s = self.settings.lock().unwrap().clone();
         let _ = self.store.save_settings(&s);
@@ -155,6 +168,7 @@ async fn auth_login(state: State<'_, AppState>, login: String, password: String)
     let (token, user) = api::login(&state.http, &login, &password, &device()).await.map_err(String::from)?;
     let out = user_json(&user);
     *state.session.lock().unwrap() = Some(Session { login, token, user });
+    state.cleanup_gravit_once();
     Ok(out)
 }
 
@@ -166,6 +180,7 @@ async fn auth_restore(state: State<'_, AppState>, login: String) -> R<Value> {
         Ok(user) => {
             let out = user_json(&user);
             *state.session.lock().unwrap() = Some(Session { login: a.login, token: a.token, user });
+            state.cleanup_gravit_once();
             Ok(out)
         }
         Err(e) => {
