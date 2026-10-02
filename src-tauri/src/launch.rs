@@ -13,6 +13,8 @@ pub struct LaunchParams<'a> {
     pub ram_mb: u64,
     pub full_screen: bool,
     pub auto_enter: bool,
+    /// размер окна игры (game_window_size) - одинаковый для всех профилей
+    pub window: (u32, u32),
     pub username: String,
     pub uuid: String,
     pub access_token: String,
@@ -146,8 +148,45 @@ pub fn build_args(p: &LaunchParams) -> Vec<String> {
         args.push("--fullscreen".into());
         args.push("true".into());
     }
-    args.extend(strs(prof, "clientArgs"));
+    // размер окна задаёт лаунчер под экран игрока: в профилях было --width 1708 --height 960 в пикселях -
+    // на 1080p это почти весь экран, на ноутбуке и на Mac (там это точки) окно вылезало за экран
+    let mut client_args = strs(prof, "clientArgs");
+    let mut i = 0;
+    while i < client_args.len() {
+        if client_args[i] == "--width" || client_args[i] == "--height" {
+            client_args.drain(i..(i + 2).min(client_args.len()));
+        } else {
+            i += 1;
+        }
+    }
+    args.extend(client_args);
+    args.extend(["--width".into(), p.window.0.to_string(), "--height".into(), p.window.1.to_string()]);
     args
+}
+
+/// Полноэкранный режим определяет только настройка профиля в лаунчере: Minecraft запоминает F11 в options.txt,
+/// и следующая игра открывалась то в окне, то на весь экран
+pub fn sync_fullscreen_option(client_dir: &std::path::Path, full_screen: bool) {
+    let path = client_dir.join("options.txt");
+    let Ok(text) = std::fs::read_to_string(&path) else { return };
+    let want = format!("fullscreen:{full_screen}");
+    let mut changed = false;
+    let lines: Vec<String> = text
+        .lines()
+        .map(|l| {
+            if l.starts_with("fullscreen:") && l != want {
+                changed = true;
+                want.clone()
+            } else {
+                l.to_string()
+            }
+        })
+        .collect();
+    if changed {
+        let _ = std::fs::write(&path, lines.join("
+") + "
+");
+    }
 }
 
 /// строка для журнала: токен не показываем

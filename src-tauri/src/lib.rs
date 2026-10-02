@@ -2,6 +2,7 @@
 mod api;
 mod cleanup;
 mod crypto;
+mod gamewindow;
 mod java;
 mod launch;
 mod migrate;
@@ -302,10 +303,12 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
         ram_mb: options.ram,
         full_screen: options.full_screen,
         auto_enter: options.auto_enter,
+        window: gamewindow::size(&app),
         username: gs.username.clone(),
         uuid: gs.uuid.clone(),
         access_token: gs.access_token.clone(),
     });
+    launch::sync_fullscreen_option(&client_dir, options.full_screen);
     let _ = app.emit("game-log", json!({ "line": format!("{} {}", java.display(), launch::redacted(&args)) }));
     spawn_game(&app, &state, &java, &args, &client_dir)
 }
@@ -322,6 +325,9 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
     #[cfg(target_os = "linux")]
     cmd.env("__GL_THREADED_OPTIMIZATIONS", "0");
     let mut child = cmd.spawn().map_err(|e| format!("Не удалось запустить игру: {e}"))?;
+    if let Some(pid) = child.id() {
+        gamewindow::bring_to_front_when_shown(pid);
+    }
     let log_path = paths::cxl_dir().join("logs").join("game-latest.log");
     let _ = std::fs::create_dir_all(log_path.parent().unwrap());
     let log = Arc::new(Mutex::new(std::fs::File::create(&log_path).ok()));
