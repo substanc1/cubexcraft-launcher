@@ -708,7 +708,7 @@ dependencies = [
 
 [[package]]
 name = "cubexcraft-launcher"
-version = "1.0.8"
+version = "1.0.10"
 dependencies = [
  "aes-gcm",
  "base64 0.22.1",

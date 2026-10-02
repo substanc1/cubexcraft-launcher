@@ -1,6 +1,6 @@
 [package]
 name = "cubexcraft-launcher"
-version = "1.0.9"
+version = "1.0.10"
 description = "CubeXCraft Launcher"
 edition = "2021"
 
