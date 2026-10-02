@@ -1,6 +1,6 @@
 <script>
   import { onMount, tick } from 'svelte';
-  import { app, SCENE_SIZE, switchScene, errorHandle, t } from './lib/app.svelte.js';
+  import { app, WINDOW_SIZE, switchScene, errorHandle, t } from './lib/app.svelte.js';
   import { call } from './lib/backend.js';
   import { applyTheme } from './lib/theme.js';
   import Login from './scenes/Login.svelte';
@@ -52,13 +52,12 @@
     call('window_show');
   });
 
-  const size = $derived(SCENE_SIZE[app.scene] || SCENE_SIZE.login);
   const Scene = $derived(scenes[app.scene]);
 </script>
 
 {#if ready}
   <div class="window" class:freeze={import.meta.env.DEV && new URLSearchParams(location.search).has('freeze')}
-       style="width:{size[0]}px;height:{size[1]}px">
+       style="width:{WINDOW_SIZE[0]}px;height:{WINDOW_SIZE[1]}px">
     <div class="sceneWrap" class:blurred={app.blurred}>
       {#if Scene}
         <Scene />

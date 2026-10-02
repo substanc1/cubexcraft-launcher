@@ -3,13 +3,8 @@ import { call, inTauri } from './backend.js';
 import { t, requestError } from './i18n.svelte.js';
 
 // размеры сцен = prefWidth/prefHeight корневых FXML старого лаунчера (окно подгоняется, как stage.sizeToScene())
-export const SCENE_SIZE = {
-  login: [930, 560],
-  servermenu: [1246, 640],
-  settings: [930, 560],
-  update: [930, 560],
-  debug: [930, 560],
-};
+// одно окно на все экраны (раньше вход/настройки/загрузка/лог были 930x560 и окно меняло размер при каждом переходе)
+export const WINDOW_SIZE = [1246, 640];
 
 export const app = $state({
   scene: 'login',
@@ -76,14 +71,19 @@ function hideProcessing() {
 export async function switchScene(name, addToFlow = true) {
   if (addToFlow) app.sceneFlow.push(name);
   app.scene = name;
-  const [w, h] = SCENE_SIZE[name] || SCENE_SIZE.login;
-  await call('window_set_size', { width: w, height: h });
 }
 
+// FxStage.back: экраны с isDisableReturnBack (update) при возврате пропускаются - из лога игры назад в меню
+const NO_RETURN_BACK = new Set(['update']);
+
 export async function back() {
-  if (app.sceneFlow.length <= 1) return;
-  app.sceneFlow.pop();
-  await switchScene(app.sceneFlow[app.sceneFlow.length - 1], false);
+  let target;
+  do {
+    if (app.sceneFlow.length <= 1) return;
+    app.sceneFlow.pop();
+    target = app.sceneFlow[app.sceneFlow.length - 1];
+  } while (NO_RETURN_BACK.has(target));
+  await switchScene(target, false);
 }
 
 export function showApplyDialog(header, text, onApply, onDeny) {

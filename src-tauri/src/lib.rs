@@ -344,14 +344,14 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
     let _ = app.emit("game-started", json!({ "pid": child.id() }));
     let app2 = app.clone();
     tauri::async_runtime::spawn(async move {
-        let code = tokio::select! {
-            r = child.wait() => r.ok().and_then(|s| s.code()).unwrap_or(-1),
-            _ = rx => { let _ = child.kill().await; let _ = child.wait().await; -1 }
+        let (code, killed) = tokio::select! {
+            r = child.wait() => (r.ok().and_then(|s| s.code()).unwrap_or(-1), false),
+            _ = rx => { let _ = child.kill().await; let _ = child.wait().await; (-1, true) }
         };
         if let Some(st) = app2.try_state::<AppState>() {
             *st.game_kill.lock().unwrap() = None;
         }
-        let _ = app2.emit("game-exit", json!({ "code": code }));
+        let _ = app2.emit("game-exit", json!({ "code": code, "killed": killed }));
     });
     Ok(())
 }
@@ -374,13 +374,6 @@ fn sync_cancel(state: State<'_, AppState>) {
 }
 
 // ---------------------------------------------------------------- окно и система
-
-#[tauri::command]
-fn window_set_size(window: tauri::WebviewWindow, width: f64, height: f64) -> R<()> {
-    window.set_size(tauri::LogicalSize::new(width, height)).map_err(|e| e.to_string())?;
-    let _ = window.center();
-    Ok(())
-}
 
 #[tauri::command]
 fn window_show(window: tauri::WebviewWindow) {
@@ -530,7 +523,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             app_init, settings_save, auth_login, auth_restore, auth_remember, auth_logout, accounts_list,
             profiles_list, server_ping, game_play, game_kill, game_running, sync_cancel,
-            window_set_size, window_show, window_minimize, window_close, open_url,
+            window_show, window_minimize, window_close, open_url,
             updates_dir_pick, updates_dir_change, open_path, self_update_check, self_update_apply
         ])
         .run(tauri::generate_context!())

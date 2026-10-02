@@ -1,5 +1,5 @@
-/* Загрузка клиента (930x560). Геометрия - scenes_update_update.layout.txt. */
-.up-layout { position: relative; width: 930px; height: 560px; overflow: hidden; }
+/* Загрузка клиента (на всё окно; в оригинале 930x560). Геометрия - scenes_update_update.layout.txt. */
+.up-layout { position: relative; width: 100%; height: 100%; overflow: hidden; }
 .up-header { position: absolute; left: 0; right: 0; top: 0; height: 60px; border: 1px solid transparent; border-bottom-color: var(--border-dark); }
 .up-title { position: absolute; left: 20px; top: 0; bottom: 0; display: flex; align-items: center; gap: 10px; }
 .up-title img { height: 18px; width: 16.13px; }

@@ -1,7 +1,7 @@
-/* Экран входа. Геометрия - из раскладки JavaFX (tools/snap -> scenes_login_login.layout.txt).
+/* Экран входа (растянут на всё окно 1246x640, колонка по центру). Геометрия - из раскладки JavaFX (tools/snap -> scenes_login_login.layout.txt).
    Высоты строк = метрики JavaFX: Unbounded 1.24em, JetBrains Mono 1.32em, Manrope 1.366em; контейнеры JavaFX
    округляет вверх до целого пикселя - здесь это явные высоты. Классы с префиксом lg- (файл подключается глобально). */
-.lg-layout { position: relative; width: 930px; height: 560px; border: 1px solid var(--border-dark); overflow: hidden; }
+.lg-layout { position: relative; width: 100%; height: 100%; border: 1px solid var(--border-dark); overflow: hidden; }
 
 /* #header: рамка 1px со всех сторон (видна только нижняя) - отступы детей как в JavaFX */
 .lg-header { position: absolute; left: 0; right: 0; top: 0; height: 48px; border: 1px solid transparent; border-bottom-color: var(--border-dark); }
@@ -18,8 +18,8 @@
 .lg-statusPill .lg-dot { font-size: 8px; line-height: 10.93px; color: var(--green); }
 .lg-statusText { font-family: 'JetBrains Mono'; font-size: 11px; line-height: 14.52px; color: var(--header); white-space: nowrap; }
 
-.lg-center { position: absolute; left: 0; right: 0; top: 48px; bottom: 26px; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
-.lg-column { width: 420px; margin-top: 16px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+.lg-center { position: absolute; left: 0; right: 0; top: 48px; bottom: 26px; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.lg-column { width: 420px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
 
 .lg-secure { height: 14px; display: flex; align-items: flex-start; gap: 12px; }
 .lg-secureLink { font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--yellow); white-space: nowrap; }
@@ -100,7 +100,7 @@
   background: linear-gradient(to bottom, transparent, var(--redTr), transparent);
   animation: lg-sweep 9s linear infinite;
 }
-@keyframes lg-sweep { from { transform: translateY(-108px); } to { transform: translateY(650px); } }
+@keyframes lg-sweep { from { transform: translateY(-108px); } to { transform: translateY(730px); } }
 
 .lg-footer { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; border: 1px solid transparent; border-top-color: var(--border-dark); }
 .lg-net { position: absolute; left: 16px; top: 0; bottom: 0; display: flex; align-items: center; gap: 8px;

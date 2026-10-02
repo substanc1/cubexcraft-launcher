@@ -32,6 +32,7 @@ export const inTauri = isTauri;
 // ---------------------------------------------------------------- имитация ядра (только браузер)
 const mockListeners = {};
 const emit = (event, payload) => (mockListeners[event] || []).forEach(h => h(payload));
+if (!isTauri) window.__mockEmit = emit; // проверка сценариев из консоли: __mockEmit('game-exit', { code: 0 })
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
 
@@ -80,7 +81,6 @@ const mock = {
     return port === 25565 ? { online: 3, max: 60 } : { online: 0, max: 20 };
   },
   async settings_save() {},
-  async window_set_size() {},
   async window_minimize() {},
   async window_show() {},
   async window_close() { window.close(); },
@@ -94,6 +94,8 @@ const mock = {
       emit('sync-progress', { phase: i < 3 ? 'check' : 'download', done: (total * i) / 20, total, file: 'mods/example.jar', speed: 12.4e6 });
     }
     emit('game-log', { line: '[mock] Minecraft запущен' });
+    setTimeout(() => emit('game-started', { pid: 1234 }));
     return { pid: 1234 };
   },
+  async game_kill() { emit('game-exit', { code: -1, killed: true }); },
 };

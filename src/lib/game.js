@@ -1,7 +1,7 @@
 // События запущенной игры (ядро: game-log / game-started / game-exit) - собираются глобально, чтобы экран лога
 // (debug) показал всё с самого старта. Поведение как ProcessLogOutput: буфер ~256К символов; при выключенном
 // «Debug-режиме» лаунчер сворачивается после старта игры и закрывается после её выхода.
-import { app } from './app.svelte.js';
+import { app, back } from './app.svelte.js';
 import { call, on } from './backend.js';
 
 const MAX = 262144;
@@ -32,6 +32,11 @@ export async function initGameEvents() {
   await on('game-exit', p => {
     app.gameRunning = false;
     appendLog(`Process finished with exit code ${p.code}`);
-    if (app.settings && app.settings.debugAllClients === false) call('window_close');
+    if (app.settings && app.settings.debugAllClients === false) return call('window_close');
+    // игру закрыли (или остановили кнопкой) - сразу обратно в лаунчер; при вылете остаёмся в логе, чтобы была видна ошибка
+    if ((p.code === 0 || p.killed) && app.scene === 'debug') {
+      back();
+      call('window_show');
+    }
   });
 }

@@ -1,5 +1,5 @@
-/* Настройки (930x560). Геометрия - из раскладки JavaFX (scenes_settings_globalsettings.layout.txt). */
-.st-layout { position: relative; width: 930px; height: 560px; overflow: hidden; }
+/* Настройки (на всё окно; в оригинале 930x560). Геометрия - из раскладки JavaFX (scenes_settings_globalsettings.layout.txt). */
+.st-layout { position: relative; width: 100%; height: 100%; overflow: hidden; }
 /* #header (global.css): нижняя рамка, рамка 1px со всех сторон -> дети смещены на 1 */
 .st-header { position: absolute; left: 0; right: 0; top: 0; height: 80px; border: 1px solid transparent; border-bottom-color: var(--border-dark); }
 .st-back { position: absolute; left: 28px; top: 34px; }
