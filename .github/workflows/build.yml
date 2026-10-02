@@ -24,6 +24,8 @@ jobs:
           mkdir out
           cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg out/CubeX-macos.dmg
           cp src-tauri/target/universal-apple-darwin/release/CubeX out/CubeX-macos-universal
+          # архив .app целиком - для самообновления на macOS (без ._-файлов AppleDouble)
+          COPYFILE_DISABLE=1 tar -C src-tauri/target/universal-apple-darwin/release/bundle/macos -czf out/CubeX-macos.app.tar.gz CubeXCraft.app
           ls -la out
       - uses: actions/upload-artifact@v4
         with:

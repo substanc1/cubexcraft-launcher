@@ -74,6 +74,10 @@ pub fn on_startup() -> bool {
     if old.exists() {
         let _ = std::fs::remove_file(&old);
     }
+    #[cfg(target_os = "macos")]
+    if let Some(b) = bundle_of(&me) {
+        let _ = std::fs::remove_dir_all(format!("{}.old", b.to_string_lossy()));
+    }
     let marker = paths::app_dir().join(MARKER);
     let Ok(raw) = std::fs::read_to_string(&marker) else { return false };
     let Ok(m) = serde_json::from_str::<GravitMarker>(&raw) else {
@@ -135,6 +139,9 @@ pub fn platform_key() -> String {
     // какой exe ставить на этой машине: Windows - всегда x64 (на ARM работает в эмуляции)
     if cfg!(windows) {
         "windows-x64".into()
+    } else if cfg!(target_os = "macos") {
+        // архив всего CubeXCraft.app (universal): подпись бандла меняется целиком, не ломается
+        "macos-app".into()
     } else {
         crate::java::platform()
     }
@@ -146,11 +153,6 @@ fn newer(remote: &str, local: &str) -> bool {
 }
 
 pub async fn check(http: &reqwest::Client) -> Option<Release> {
-    // macOS: замена бинарника внутри подписанного .app может сломать подпись - обновление бандла целиком сделаем
-    // отдельно, пока новые версии ставятся из .dmg с сайта
-    if cfg!(target_os = "macos") {
-        return None;
-    }
     let r = http
         .get(format!("{}/cxl/launcher/{}.json", crate::api::SITE, platform_key()))
         .timeout(Duration::from_secs(4))
@@ -169,7 +171,11 @@ pub async fn apply(http: &reqwest::Client, rel: &Release, emit: &(dyn Fn(u64, u6
     use futures_util::StreamExt;
     use tokio::io::AsyncWriteExt;
     let me = std::env::current_exe().map_err(|e| e.to_string())?;
-    let tmp = PathBuf::from(format!("{}.download", me.to_string_lossy()));
+    let tmp = if cfg!(target_os = "macos") {
+        std::env::temp_dir().join(format!("cubexcraft-update-{}.tar.gz", std::process::id()))
+    } else {
+        PathBuf::from(format!("{}.download", me.to_string_lossy()))
+    };
     let r = http.get(&rel.url).send().await.map_err(|e| e.without_url().to_string())?;
     if !r.status().is_success() {
         return Err(format!("HTTP {}", r.status().as_u16()));
@@ -191,11 +197,18 @@ pub async fn apply(http: &reqwest::Client, rel: &Release, emit: &(dyn Fn(u64, u6
         let _ = std::fs::remove_file(&tmp);
         return Err("контрольная сумма обновления не совпала".into());
     }
+    #[cfg(target_os = "macos")]
+    {
+        let r = apply_mac_bundle(&me, &tmp);
+        let _ = std::fs::remove_file(&tmp);
+        return r;
+    }
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let _ = std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755));
     }
+    #[allow(unreachable_code)]
     let old = PathBuf::from(format!("{}.old", me.to_string_lossy()));
     let _ = std::fs::remove_file(&old);
     std::fs::rename(&me, &old).map_err(|e| e.to_string())?;
@@ -204,5 +217,47 @@ pub async fn apply(http: &reqwest::Client, rel: &Release, emit: &(dyn Fn(u64, u6
         return Err(e.to_string());
     }
     spawn_detached(&me);
+    Ok(())
+}
+
+/// .app, внутри которого мы запущены (…/CubeXCraft.app/Contents/MacOS/CubeX)
+#[cfg(target_os = "macos")]
+fn bundle_of(exe: &Path) -> Option<PathBuf> {
+    exe.ancestors().find(|p| p.extension().map(|e| e == "app").unwrap_or(false)).map(Path::to_path_buf)
+}
+
+/// macOS: распаковать архив .app рядом с текущим (тот же том), старый -> .app.old, новый на его место,
+/// запуск нового через LaunchServices. .app.old удаляется при следующем старте (on_startup).
+#[cfg(target_os = "macos")]
+fn apply_mac_bundle(me: &Path, archive: &Path) -> Result<(), String> {
+    let bundle = bundle_of(me).ok_or("лаунчер запущен не из .app")?;
+    let parent = bundle.parent().ok_or("нет папки приложения")?.to_path_buf();
+    let staging = parent.join(format!(".cubexcraft-update-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&staging);
+    std::fs::create_dir_all(&staging).map_err(|e| format!("{}: {e}", parent.display()))?;
+    let f = std::fs::File::open(archive).map_err(|e| e.to_string())?;
+    tar::Archive::new(flate2::read::GzDecoder::new(f)).unpack(&staging).map_err(|e| e.to_string())?;
+    let new_app = std::fs::read_dir(&staging)
+        .map_err(|e| e.to_string())?
+        .flatten()
+        .map(|e| e.path())
+        .find(|p| p.extension().map(|e| e == "app").unwrap_or(false))
+        .ok_or("в архиве обновления нет .app")?;
+    let old = PathBuf::from(format!("{}.old", bundle.to_string_lossy()));
+    let _ = std::fs::remove_dir_all(&old);
+    std::fs::rename(&bundle, &old).map_err(|e| e.to_string())?;
+    if let Err(e) = std::fs::rename(&new_app, &bundle) {
+        let _ = std::fs::rename(&old, &bundle);
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(e.to_string());
+    }
+    let _ = std::fs::remove_dir_all(&staging);
+    let _ = std::process::Command::new("open")
+        .arg("-n")
+        .arg(&bundle)
+        .arg("--args")
+        .arg("--wait-pid")
+        .arg(std::process::id().to_string())
+        .spawn();
     Ok(())
 }
