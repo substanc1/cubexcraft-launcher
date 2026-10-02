@@ -45,17 +45,26 @@ export function errorHandle(e) {
 }
 
 // ProcessingOverlay.processRequest: показать карточку "ЗАГРУЗКА..." с описанием, на успехе скрыть сразу,
-// на ошибке - показать ошибку в карточке и скрыть через 1.5 с
+// на ошибке - показать ошибку в карточке и скрыть через 1.5 с.
+// Быстрый ответ (ядро запросило заранее, при старте) - без мигания: карточка появляется, только если ждать > 150 мс
 let processingUse = 0;
 export async function processRequest(text, promise, { onError } = {}) {
   processingUse++;
-  app.processing = { visible: true, text, error: false };
-  app.blurred = true;
+  const show = () => {
+    app.processing = { visible: true, text, error: false };
+    app.blurred = true;
+  };
+  let timer = null;
+  if (app.processing.visible) show();
+  else timer = setTimeout(show, 150);
   try {
     const r = await promise;
+    clearTimeout(timer);
     if (--processingUse === 0) hideProcessing();
     return r;
   } catch (e) {
+    clearTimeout(timer);
+    app.blurred = true;
     if (onError) onError(e);
     else errorHandle(e);
     const shown = typeof e === 'string' ? e : String(e && (e.message || e));

@@ -43,6 +43,7 @@
     const profiles = await processRequest(t('overlay.processing.text.profiles'), call('profiles_list'));
     app.profiles = profiles;
     await switchScene('servermenu');
+    call('timing_mark', { what: 'меню серверов показано' }).catch(() => {});
   }
 
   // AuthFlow.loginWithGui -> LoginAndPasswordAuthMethod.onAuthClicked -> AuthFlow.login

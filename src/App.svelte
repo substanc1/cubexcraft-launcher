@@ -20,13 +20,14 @@
 
   const scenes = { login: Login, servermenu: ServerMenu, settings: Settings, update: Update, debug: Debug };
   let ready = $state(false);
+  let updateCheck = null;
 
   onMount(async () => {
     try {
       initGameEvents();
+      // проверка обновления уже идёт в ядре с самого старта - окно не ждёт её ответа (раньше ждало, до 4 с без сети)
+      updateCheck = call('self_update_check').catch(() => null);
       const init = await call('app_init');
-      // новая версия лаунчера - ставим её до входа (LauncherSelfUpdate.checkAndUpdate)
-      app.selfUpdate = await call('self_update_check').catch(() => null);
       app.settings = init.settings;
       app.javaVersion = init.javaVersion || '21';
       app.updatesDir = init.updatesDir || '';
@@ -51,6 +52,9 @@
     // Не через requestAnimationFrame: WebKit (macOS/Linux) в скрытом окне его не вызывает - окно так и не появлялось
     await tick();
     call('window_show');
+    // новая версия лаунчера - ставится сразу (LauncherSelfUpdate.checkAndUpdate), но не посреди запуска игры
+    const rel = updateCheck && (await updateCheck);
+    if (rel && !app.gameRunning && app.scene !== 'update' && app.scene !== 'debug') app.selfUpdate = rel;
   });
 
 </script>

@@ -20,6 +20,43 @@ pub struct LaunchParams<'a> {
     pub access_token: String,
 }
 
+/// «АВТО»: 16 ГБ ОЗУ и больше - 6 ГБ игре, 12 ГБ - 5, 8 ГБ - 4, меньше - половина (не меньше 2 ГБ)
+pub fn auto_ram_mb() -> u64 {
+    let total = total_ram_mb().unwrap_or(8192);
+    match total {
+        t if t >= 15000 => 6144,
+        t if t >= 11000 => 5120,
+        t if t >= 7000 => 4096,
+        t => (t / 2).max(2048),
+    }
+}
+
+/// объём ОЗУ компьютера, МБ
+pub fn total_ram_mb() -> Option<u64> {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+        let mut m: MEMORYSTATUSEX = unsafe { std::mem::zeroed() };
+        m.dwLength = std::mem::size_of::<MEMORYSTATUSEX>() as u32;
+        if unsafe { GlobalMemoryStatusEx(&mut m) } != 0 {
+            return Some(m.ullTotalPhys / 1048576);
+        }
+        None
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let s = std::fs::read_to_string("/proc/meminfo").ok()?;
+        let kb: u64 = s.lines().find(|l| l.starts_with("MemTotal:"))?.split_whitespace().nth(1)?.parse().ok()?;
+        Some(kb / 1024)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let out = std::process::Command::new("sysctl").args(["-n", "hw.memsize"]).output().ok()?;
+        let bytes: u64 = String::from_utf8_lossy(&out.stdout).trim().parse().ok()?;
+        Some(bytes / 1048576)
+    }
+}
+
 fn strs(v: &Value, k: &str) -> Vec<String> {
     v.get(k).and_then(|x| x.as_array()).map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect()).unwrap_or_default()
 }
@@ -79,9 +116,28 @@ pub fn build_args(p: &LaunchParams) -> Vec<String> {
         args.push(subst(&a, &version));
     }
     args.extend(optional_jvm_args(prof));
-    if p.ram_mb > 0 {
-        args.push(format!("-Xmx{}M", p.ram_mb));
-    }
+    // память: «АВТО» - лаунчер подбирает объём по ОЗУ компьютера (раньше JVM сама брала 1/4 ОЗУ: на 8 ГБ это 2 ГБ,
+    // сборке с GregTech мало - загрузка шла с постоянной сборкой мусора). Стартовая куча сразу половина от
+    // максимума (до 4 ГБ) и молодое поколение G1 шире - при загрузке модов меньше сборок мусора и расширений кучи.
+    let xmx = if p.ram_mb > 0 { p.ram_mb } else { auto_ram_mb() };
+    args.push(format!("-Xmx{xmx}M"));
+    args.push(format!("-Xms{}M", (xmx / 2).clamp(1024, 4096).min(xmx)));
+    args.extend(
+        [
+            "-XX:+UseG1GC",
+            "-XX:+UnlockExperimentalVMOptions",
+            "-XX:G1NewSizePercent=30",
+            "-XX:G1ReservePercent=20",
+            // System.gc() из модов - фоновая сборка вместо полной остановки игры
+            "-XX:+ExplicitGCInvokesConcurrent",
+            // большим сборкам модов не хватает стандартных 240 МБ под JIT - компилятор отключается, игра тормозит
+            "-XX:ReservedCodeCacheSize=400M",
+            // вывод игры в UTF-8 (журнал в лаунчере), иначе русские строки в кодировке системы
+            "-Dstdout.encoding=UTF-8",
+            "-Dstderr.encoding=UTF-8",
+        ]
+        .map(String::from),
+    );
     let natives = p.client_dir.join("natives").join(paths::natives_os()).join(paths::game_arch());
     args.push(format!("-Djava.library.path={}", natives.to_string_lossy()));
 

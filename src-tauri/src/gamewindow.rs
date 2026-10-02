@@ -47,6 +47,7 @@ pub fn bring_to_front_when_shown(pid: u32) {
             std::thread::sleep(Duration::from_millis(200));
             let Some(h) = find_game_window(pid) else { continue };
             log(format!("окно найдено: {}", describe(h)));
+            crate::timing::mark("окно игры появилось");
             std::thread::sleep(Duration::from_millis(300));
             for attempt in 1..=3 {
                 unsafe {

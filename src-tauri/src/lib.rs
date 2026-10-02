@@ -11,6 +11,7 @@ mod ping;
 mod selfupdate;
 mod store;
 mod sync;
+mod timing;
 
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -26,7 +27,17 @@ struct Session {
     user: api::User,
 }
 
+/// запросы, начатые ещё при старте ядра, пока WebView2 поднимает интерфейс (~0,5 с): проверка обновления,
+/// сохранённая сессия и список серверов. Команды интерфейса забирают готовый результат вместо нового запроса.
+#[derive(Default)]
+struct Prefetch {
+    update: Option<tauri::async_runtime::JoinHandle<Option<selfupdate::Release>>>,
+    me: Option<(String, tauri::async_runtime::JoinHandle<Result<api::User, api::ApiError>>)>,
+    profiles: Option<(String, tauri::async_runtime::JoinHandle<Result<Vec<Value>, api::ApiError>>)>,
+}
+
 struct AppState {
+    prefetch: Mutex<Prefetch>,
     http: reqwest::Client,
     store: Store,
     settings: Mutex<Value>,
@@ -177,7 +188,19 @@ async fn auth_login(state: State<'_, AppState>, login: String, password: String)
 async fn auth_restore(state: State<'_, AppState>, login: String) -> R<Value> {
     let acc = state.store.load_accounts();
     let a = acc.accounts.iter().find(|a| a.login.eq_ignore_ascii_case(&login)).cloned().ok_or("auth.invalidtoken")?;
-    match api::me(&state.http, &a.token).await {
+    let pre = match state.prefetch.lock().unwrap().me.take() {
+        Some((l, h)) if l.eq_ignore_ascii_case(&a.login) => Some(h),
+        _ => None,
+    };
+    let me = match pre {
+        Some(h) => match h.await {
+            Ok(r) => r,
+            Err(_) => api::me(&state.http, &a.token).await,
+        },
+        None => api::me(&state.http, &a.token).await,
+    };
+    timing::mark("вход: сессия проверена");
+    match me {
         Ok(user) => {
             let out = user_json(&user);
             *state.session.lock().unwrap() = Some(Session { login: a.login, token: a.token, user });
@@ -230,7 +253,19 @@ fn accounts_list(state: State<'_, AppState>) -> Value {
 #[tauri::command]
 async fn profiles_list(state: State<'_, AppState>) -> R<Vec<Value>> {
     let token = state.token()?;
-    let mut list = api::profiles(&state.http, &token).await.map_err(String::from)?;
+    let pre = match state.prefetch.lock().unwrap().profiles.take() {
+        Some((t, h)) if t == token => Some(h),
+        _ => None,
+    };
+    let fetched = match pre {
+        Some(h) => match h.await {
+            Ok(Ok(l)) => Ok(l),
+            _ => api::profiles(&state.http, &token).await,
+        },
+        None => api::profiles(&state.http, &token).await,
+    };
+    let mut list = fetched.map_err(String::from)?;
+    timing::mark("список серверов получен");
     list.sort_by(|a, b| a["title"].as_str().unwrap_or("").cmp(b["title"].as_str().unwrap_or("")));
     *state.profiles.lock().unwrap() = list.clone();
     Ok(list)
@@ -267,33 +302,41 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
             "filesDone": p.files_done, "filesTotal": p.files_total, "file": p.file, "speed": p.speed }));
     };
 
-    // 1. Java
+    timing::mark(&format!("ИГРАТЬ: {dir}"));
+    // 1. всё сетевое разом: Java, три манифеста файлов и токен для игры (раньше - пять запросов по очереди)
     let app2 = app.clone();
-    let java = java::ensure(&state.http, &move |done, total| {
+    let java_progress = move |done, total| {
         let _ = app2.emit("sync-progress", json!({ "stage": "java", "phase": "download", "done": done, "total": total, "filesDone": 0, "filesTotal": 1, "file": "java", "speed": 0 }));
-    })
-    .await?;
+    };
+    let (java, m_libs, m_assets, m_client, gs) = tokio::join!(
+        java::ensure(&state.http, &java_progress),
+        api::manifest(&state.http, &token, "@cxl"),
+        api::manifest(&state.http, &token, &asset_dir),
+        api::manifest(&state.http, &token, &dir),
+        api::game_session(&state.http, &token),
+    );
+    let java = java?;
+    timing::mark("Java, манифесты и токен игры получены");
 
     // 2. файлы: свои библиотеки, assets, клиент
     let syncer = sync::Syncer { http: state.http.clone(), cancel: state.cancel.clone(), index: state.index.clone() };
     let index_path = paths::cxl_dir().join("index.json");
     let libs_dir = paths::cxl_dir().join("libs");
     let res: R<()> = async {
-        let m = api::manifest(&state.http, &token, "@cxl").await.map_err(String::from)?;
         let rules = sync::Rules { update_all: true, ..Default::default() };
-        syncer.sync(&m, &libs_dir, &rules, &|p| emit("libs", p)).await?;
-        let m = api::manifest(&state.http, &token, &asset_dir).await.map_err(String::from)?;
-        syncer.sync(&m, &updates.join(&asset_dir), &rules, &|p| emit("assets", p)).await?;
-        let m = api::manifest(&state.http, &token, &dir).await.map_err(String::from)?;
-        syncer.sync(&m, &updates.join(&dir), &sync::rules_from_profile(&profile), &|p| emit("client", p)).await?;
+        syncer.sync(&m_libs.map_err(String::from)?, &libs_dir, &rules, &|p| emit("libs", p)).await?;
+        syncer.sync(&m_assets.map_err(String::from)?, &updates.join(&asset_dir), &rules, &|p| emit("assets", p)).await?;
+        let rules = sync::rules_from_profile(&profile);
+        syncer.sync(&m_client.map_err(String::from)?, &updates.join(&dir), &rules, &|p| emit("client", p)).await?;
         Ok(())
     }
     .await;
     state.index.lock().unwrap().save(&index_path);
     res?;
+    timing::mark("файлы проверены");
 
-    // 3. токен для игры и запуск
-    let gs = api::game_session(&state.http, &token).await.map_err(String::from)?;
+    // 3. запуск
+    let gs = gs.map_err(String::from)?;
     let client_dir = updates.join(&dir);
     let args = launch::build_args(&launch::LaunchParams {
         profile: &profile,
@@ -325,18 +368,34 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
     #[cfg(target_os = "linux")]
     cmd.env("__GL_THREADED_OPTIMIZATIONS", "0");
     let mut child = cmd.spawn().map_err(|e| format!("Не удалось запустить игру: {e}"))?;
+    timing::mark("игра запущена (java)");
     if let Some(pid) = child.id() {
         gamewindow::bring_to_front_when_shown(pid);
     }
     let log_path = paths::cxl_dir().join("logs").join("game-latest.log");
     let _ = std::fs::create_dir_all(log_path.parent().unwrap());
     let log = Arc::new(Mutex::new(std::fs::File::create(&log_path).ok()));
+    let menu_seen = Arc::new(AtomicBool::new(false));
     for out in [child.stdout.take().map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>), child.stderr.take().map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>)].into_iter().flatten() {
         let app = app.clone();
         let log = log.clone();
+        let menu_seen = menu_seen.clone();
         tauri::async_runtime::spawn(async move {
-            let mut lines = BufReader::new(out).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
+            // байтами, а не lines(): одна строка не в UTF-8 (java.util.logging пишет в кодировке системы)
+            // обрывала весь дальнейший журнал игры
+            let mut reader = BufReader::new(out);
+            let mut buf = Vec::new();
+            loop {
+                buf.clear();
+                match reader.read_until(b'\n', &mut buf).await {
+                    Ok(0) | Err(_) => break,
+                    Ok(_) => {}
+                }
+                let line = String::from_utf8_lossy(&buf).trim_end_matches(['\r', '\n']).to_string();
+                // наш экран меню (мод cubexcraft-mainmenu) зарегистрирован - игра загрузилась
+                if line.contains("CubexTitleScreen") && !menu_seen.swap(true, Ordering::Relaxed) {
+                    timing::mark("главное меню игры");
+                }
                 if let Some(f) = log.lock().unwrap().as_mut() {
                     use std::io::Write;
                     let _ = writeln!(f, "{line}");
@@ -381,8 +440,15 @@ fn sync_cancel(state: State<'_, AppState>) {
 
 // ---------------------------------------------------------------- окно и система
 
+/// отметка в журнале времени запуска от интерфейса (меню серверов показано и т.п.)
+#[tauri::command]
+fn timing_mark(what: String) {
+    timing::mark(&what);
+}
+
 #[tauri::command]
 fn window_show(window: tauri::WebviewWindow) {
+    timing::mark("окно показано");
     let _ = window.show();
     let _ = window.set_focus();
 }
@@ -464,7 +530,13 @@ fn open_path(path: String) -> R<()> {
 
 #[tauri::command]
 async fn self_update_check(state: State<'_, AppState>) -> R<Option<selfupdate::Release>> {
-    Ok(selfupdate::check(&state.http).await)
+    let pre = state.prefetch.lock().unwrap().update.take();
+    let rel = match pre {
+        Some(h) => h.await.ok().flatten(),
+        None => selfupdate::check(&state.http).await,
+    };
+    timing::mark(&format!("проверка обновления: {}", rel.as_ref().map(|r| r.version.as_str()).unwrap_or("нет")));
+    Ok(rel)
 }
 
 #[tauri::command]
@@ -487,10 +559,31 @@ fn open_url(url: String) -> R<()> {
     open::that_detached(url).map_err(|e| e.to_string())
 }
 
+/// пока поднимается интерфейс: проверка обновления (заодно прогревает DNS+TLS до сайта) и, если включён автовход
+/// с сохранённой сессией, проверка этой сессии и список серверов - тем же токеном, параллельно
+fn start_prefetch(state: &AppState) {
+    let mut p = state.prefetch.lock().unwrap();
+    let http = state.http.clone();
+    p.update = Some(tauri::async_runtime::spawn(async move { selfupdate::check(&http).await }));
+    let s = state.settings.lock().unwrap().clone();
+    let auto = s.get("autoAuth").and_then(|v| v.as_bool()).unwrap_or(false);
+    let login = s.get("login").and_then(|v| v.as_str()).map(String::from);
+    if let (true, Some(login)) = (auto, login) {
+        let acc = state.store.load_accounts();
+        if let Some(a) = acc.accounts.iter().find(|a| a.login.eq_ignore_ascii_case(&login)) {
+            let (http, token) = (state.http.clone(), a.token.clone());
+            p.me = Some((a.login.clone(), tauri::async_runtime::spawn(async move { api::me(&http, &token).await })));
+            let (http, token) = (state.http.clone(), a.token.clone());
+            p.profiles = Some((a.token.clone(), tauri::async_runtime::spawn(async move { api::profiles(&http, &token).await })));
+        }
+    }
+}
+
 pub fn run() {
     if selfupdate::on_startup() {
         return; // обновление со старого лаунчера поставлено, запущен установленный exe
     }
+    timing::init();
     let store = Store::open();
     let settings = store.load_settings();
     let index = sync::Index::load(&paths::cxl_dir().join("index.json"));
@@ -504,6 +597,7 @@ pub fn run() {
             }
         }))
         .manage(AppState {
+            prefetch: Mutex::new(Prefetch::default()),
             http: api::client(),
             store,
             settings: Mutex::new(settings),
@@ -514,6 +608,7 @@ pub fn run() {
             game_kill: Mutex::new(None),
         })
         .setup(|app| {
+            start_prefetch(&app.state::<AppState>());
             // страховка: если интерфейс не показал окно (ошибка JS и т.п.) - показать через 3 с
             if let Some(w) = app.get_webview_window("main") {
                 std::thread::spawn(move || {
@@ -529,7 +624,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             app_init, settings_save, auth_login, auth_restore, auth_remember, auth_logout, accounts_list,
             profiles_list, server_ping, game_play, game_kill, game_running, sync_cancel,
-            window_show, window_minimize, window_close, open_url,
+            timing_mark, window_show, window_minimize, window_close, open_url,
             updates_dir_pick, updates_dir_change, open_path, self_update_check, self_update_apply
         ])
         .run(tauri::generate_context!())

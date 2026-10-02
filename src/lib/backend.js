@@ -83,6 +83,7 @@ const mock = {
   async settings_save() {},
   async window_minimize() {},
   async window_show() {},
+  async timing_mark() {},
   async window_close() { window.close(); },
   async window_drag() {},
   async open_url({ url }) { window.open(url, '_blank'); },
