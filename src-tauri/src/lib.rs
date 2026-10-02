@@ -46,6 +46,15 @@ struct AppState {
     cancel: Arc<AtomicBool>,
     index: Arc<Mutex<sync::Index>>,
     game_kill: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+    presence: Mutex<Presence>,
+    presence_kick: tokio::sync::Notify,
+}
+
+/// статус для друзей: ui - online/away (интерфейс: открыт или игрок отошёл), playing - сборка, на которой идёт игра
+#[derive(Default, Clone)]
+struct Presence {
+    ui: String,
+    playing: Option<String>,
 }
 
 type R<T> = Result<T, String>;
@@ -237,6 +246,7 @@ fn auth_remember(state: State<'_, AppState>, remember: bool) -> R<Value> {
 async fn auth_logout(state: State<'_, AppState>) -> R<Value> {
     let sess = state.session.lock().unwrap().take();
     if let Some(s) = sess {
+        let _ = api::social(&state.http, &s.token, "presence/offline", Some(&json!({}))).await;
         api::logout(&state.http, &s.token).await;
         state.forget(&s.login);
         state.save_settings();
@@ -354,7 +364,12 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
     });
     launch::sync_fullscreen_option(&client_dir, options.full_screen);
     let _ = app.emit("game-log", json!({ "line": format!("{} {}", java.display(), launch::redacted(&args)) }));
-    spawn_game(&app, &state, &java, &args, &client_dir)
+    spawn_game(&app, &state, &java, &args, &client_dir)?;
+    // друзьям: «на сборке <название>» (до выхода из игры)
+    let title = profile["title"].as_str().unwrap_or(&dir).to_string();
+    state.presence.lock().unwrap().playing = Some(title);
+    state.presence_kick.notify_one();
+    Ok(())
 }
 
 fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::path::Path, args: &[String], cwd: &std::path::Path) -> R<()> {
@@ -415,6 +430,8 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
         };
         if let Some(st) = app2.try_state::<AppState>() {
             *st.game_kill.lock().unwrap() = None;
+            st.presence.lock().unwrap().playing = None;
+            st.presence_kick.notify_one();
         }
         // Windows ARM: игра на ARM64-Java упала, не открыв окно - дальше x64-Java (в эмуляции, но работает)
         if win_arm64 && !killed && code != 0 && !window_seen.load(Ordering::Relaxed) {
@@ -466,14 +483,21 @@ fn window_minimize(window: tauri::WebviewWindow) {
 
 /// закрытие лаунчера убивает запущенную игру (PrimaryStage.close старого лаунчера)
 #[tauri::command]
-fn window_close(app: tauri::AppHandle, state: State<'_, AppState>) {
+async fn window_close(app: tauri::AppHandle, state: State<'_, AppState>) -> R<()> {
     if let Some(tx) = state.game_kill.lock().unwrap().take() {
         let _ = tx.send(());
+    }
+    // друзьям сразу «не в сети» (иначе статус погаснет сам через 90 с)
+    if let Ok(token) = state.token() {
+        let empty = json!({});
+        let offline = api::social(&state.http, &token, "presence/offline", Some(&empty));
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(1500), offline).await;
     }
     state.save_settings();
     state.index.lock().unwrap().save(&paths::cxl_dir().join("index.json"));
     std::thread::sleep(std::time::Duration::from_millis(150));
     app.exit(0);
+    Ok(())
 }
 
 // ---------------------------------------------------------------- папка клиентов (настройки)
@@ -530,6 +554,58 @@ fn copy_tree(from: &std::path::Path, to: &std::path::Path) -> R<()> {
 #[tauri::command]
 fn open_path(path: String) -> R<()> {
     open::that_detached(path).map_err(|e| e.to_string())
+}
+
+// ---------------------------------------------------------------- друзья (launcher-friends.js на сайте)
+
+#[tauri::command]
+async fn friends_get(state: State<'_, AppState>) -> R<Value> {
+    api::social(&state.http, &state.token()?, "friends", None).await.map_err(String::from)
+}
+
+/// request | accept | decline | remove | invite (server - сборка, куда зовём)
+#[tauri::command]
+async fn friends_action(state: State<'_, AppState>, action: String, username: String, server: Option<String>) -> R<Value> {
+    if !["request", "accept", "decline", "remove", "invite"].contains(&action.as_str()) {
+        return Err("bad action".into());
+    }
+    let body = json!({ "username": username, "server": server });
+    api::social(&state.http, &state.token()?, &format!("friends/{action}"), Some(&body)).await.map_err(String::from)
+}
+
+/// read (прочитать все) | dismiss (убрать одно)
+#[tauri::command]
+async fn notes_action(state: State<'_, AppState>, action: String, id: Option<String>) -> R<Value> {
+    if !["read", "dismiss"].contains(&action.as_str()) {
+        return Err("bad action".into());
+    }
+    let body = json!({ "id": id });
+    api::social(&state.http, &state.token()?, &format!("notifications/{action}"), Some(&body)).await.map_err(String::from)
+}
+
+/// интерфейс: online (лаунчер открыт) | away (свёрнут или без действий); сразу отправить
+#[tauri::command]
+fn presence_set(state: State<'_, AppState>, ui: String) {
+    state.presence.lock().unwrap().ui = if ui == "away" { "away".into() } else { "online".into() };
+    state.presence_kick.notify_one();
+}
+
+/// раз в 30 с (и сразу после presence_set/запуска/выхода из игры) - статус на сайт; в ответ снимок друзей,
+/// заявок и уведомлений уходит в интерфейс событием friends-update
+async fn presence_loop(app: tauri::AppHandle) {
+    loop {
+        let st = app.state::<AppState>();
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(30), st.presence_kick.notified()).await;
+        let Ok(token) = st.token() else { continue };
+        let p = st.presence.lock().unwrap().clone();
+        let body = match &p.playing {
+            Some(server) => json!({ "state": "playing", "server": server }),
+            None => json!({ "state": if p.ui == "away" { "away" } else { "online" } }),
+        };
+        if let Ok(v) = api::social(&st.http, &token, "presence", Some(&body)).await {
+            let _ = app.emit("friends-update", v);
+        }
+    }
 }
 
 // ---------------------------------------------------------------- самообновление
@@ -625,9 +701,13 @@ pub fn run() {
             cancel: Arc::new(AtomicBool::new(false)),
             index: Arc::new(Mutex::new(index)),
             game_kill: Mutex::new(None),
+            presence: Mutex::new(Presence::default()),
+            presence_kick: tokio::sync::Notify::new(),
         })
         .setup(|app| {
             start_prefetch(&app.state::<AppState>());
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(presence_loop(handle));
             // страховка: если интерфейс не показал окно (ошибка JS и т.п.) - показать через 3 с
             if let Some(w) = app.get_webview_window("main") {
                 std::thread::spawn(move || {
@@ -644,6 +724,7 @@ pub fn run() {
             app_init, settings_save, auth_login, auth_restore, auth_remember, auth_logout, accounts_list,
             profiles_list, server_ping, game_play, game_kill, game_running, sync_cancel,
             timing_mark, window_show, window_minimize, window_close, open_url,
+            friends_get, friends_action, notes_action, presence_set,
             updates_dir_pick, updates_dir_change, open_path, self_update_check, self_update_apply
         ])
         .run(tauri::generate_context!())

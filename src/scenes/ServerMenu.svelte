@@ -9,11 +9,26 @@
   import CutButton from '../components/CutButton.svelte';
   import Avatar from '../components/Avatar.svelte';
   import AccountMenu from '../components/AccountMenu.svelte';
+  import FriendsPopup from '../components/FriendsPopup.svelte';
+  import { friends, openFriends, friendsOnLogin, statusText } from '../lib/friends.svelte.js';
   import { tooltip } from '../lib/tooltip.js';
   import { fxscroll } from '../lib/fxscroll.js';
   import logo from '../assets/images/logo.png';
 
   const MODS_COLLAPSED_LIMIT = 14;
+
+  // иконки рейла (макет handoff-10): SVG-контуры, цвет - currentColor через mask
+  const ICONS = {
+    servers: '<rect x="3" y="3" width="18" height="7" rx="1"/><rect x="3" y="14" width="18" height="7" rx="1"/><path d="M7 6.5h.01M7 17.5h.01M12 6.5h5M12 17.5h5"/>',
+    friends: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M18 14.4c2 .7 3.5 2.5 3.5 5.6"/>',
+    news: '<path d="M4 4h13a1 1 0 0 1 1 1v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M18 9h3v10a2 2 0 0 1-2 2M7.5 8h6M7.5 12h6M7.5 16h6"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+    power: '<path d="M12 3v9"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/>',
+  };
+  const icon = id =>
+    '--icon:url("data:image/svg+xml,' +
+    encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + ICONS[id] + '</svg>') +
+    '")';
 
   let nav = $state('servers');
   let navLabel = $state(t('scenes.servermenu.nav.servers'));
@@ -25,6 +40,8 @@
   let mainScroll;
   let sideScroll;
   let friendsSection;
+  let now = $state(Date.now());
+  const friendsOnline = $derived(friends.friends.filter(f => f.state !== 'offline').length);
 
   const prop = (p, k) => (p && p.properties ? p.properties[k] : undefined);
   const name = p => p.title || p.name || '';
@@ -59,6 +76,9 @@
   }
 
   onMount(() => {
+    // друзья: статус «в сети» и свежий список; длительность игры у друзей тикает
+    friendsOnLogin();
+    const tick = setInterval(() => (now = Date.now()), 30000);
     // ServerMenuScene.reset: пинг каждого сервера, выбранный - lastProfile или первый
     if (!app.selected) app.selected = app.settings?.lastProfile || null;
     for (const p of profiles) {
@@ -68,6 +88,7 @@
         .then(r => (pings[p.uuid] = r))
         .catch(() => {});
     }
+    return () => clearInterval(tick);
   });
 
   function navTo(which) {
@@ -108,12 +129,15 @@
   <div class="sm-rail">
     <img class="sm-railLogo" src={logo} alt="" />
     <div class="sm-railDivider"></div>
-    <button type="button" class="sm-railNav" class:selected={nav === 'servers'} use:tooltip={t('scenes.servermenu.nav.servers')} onclick={() => navTo('servers')}>▦</button>
-    <button type="button" class="sm-railNav" class:selected={nav === 'friends'} use:tooltip={t('scenes.servermenu.nav.friends')} onclick={() => navTo('friends')}>◉</button>
-    <button type="button" class="sm-railNav" class:selected={nav === 'news'} use:tooltip={t('scenes.servermenu.nav.news')} onclick={() => navTo('news')}>▤</button>
+    <button type="button" class="sm-railNav" class:selected={nav === 'servers'} aria-label={t('scenes.servermenu.nav.servers')} use:tooltip={t('scenes.servermenu.nav.servers')} onclick={() => navTo('servers')}><span class="sm-railIcon" style={icon('servers')}></span></button>
+    <button type="button" class="sm-railNav" aria-label={t('scenes.servermenu.nav.friends')} use:tooltip={t('scenes.servermenu.nav.friends')} onclick={() => openFriends(friends.requests.length ? 'reqs' : 'friends')}>
+      <span class="sm-railIcon" style={icon('friends')}></span>
+      {#if friends.requests.length}<span class="sm-railBadge">{friends.requests.length}</span>{/if}
+    </button>
+    <button type="button" class="sm-railNav" class:selected={nav === 'news'} aria-label={t('scenes.servermenu.nav.news')} use:tooltip={t('scenes.servermenu.nav.news')} onclick={() => navTo('news')}><span class="sm-railIcon" style={icon('news')}></span></button>
     <div class="sm-grow"></div>
-    <button type="button" class="sm-railNav" use:tooltip={t('scenes.servermenu.nav.settings')} onclick={() => switchScene('settings')}>⚙</button>
-    <button type="button" class="sm-deauth" use:tooltip={t('scenes.servermenu.deauthTooltip')} onclick={doDeauth}>⏻</button>
+    <button type="button" class="sm-railNav" aria-label={t('scenes.servermenu.nav.settings')} use:tooltip={t('scenes.servermenu.nav.settings')} onclick={() => switchScene('settings')}><span class="sm-railIcon" style={icon('settings')}></span></button>
+    <button type="button" class="sm-deauth" aria-label={t('scenes.servermenu.deauthTooltip')} use:tooltip={t('scenes.servermenu.deauthTooltip')} onclick={doDeauth}><span class="sm-railIcon" style={icon('power')}></span></button>
   </div>
 
   <!-- Шапка -->
@@ -236,9 +260,20 @@
           <span class="sm-tag">{t('scenes.servermenu.feedTag')}</span>
           <span class="sm-emptyState">{t('scenes.servermenu.comingSoon')}</span>
         </div>
-        <div class="sm-sideSection" bind:this={friendsSection}>
-          <span class="sm-tag">{t('scenes.servermenu.friendsTag')}</span>
-          <span class="sm-emptyState">{t('scenes.servermenu.comingSoon')}</span>
+        <div class="sm-sideSection sm-friendsSection" bind:this={friendsSection}>
+          <span class="sm-tag">{t('scenes.servermenu.friendsTag')}{friends.friends.length ? ' · ' + friendsOnline + '/' + friends.friends.length : ''}</span>
+          {#each friends.friends as f (f.username)}
+            <button type="button" class="sm-friend" onclick={() => openFriends('friends')} data-no-drag>
+              <span class="sm-friendAvatar" class:off={f.state === 'offline'}><Avatar username={f.username} size={26} /></span>
+              <span class="sm-friendWho">
+                <span class="sm-friendName">{f.username}</span>
+                <span class="sm-friendStatus">{statusText(f, now)}</span>
+              </span>
+              <span class="sm-friendDot" class:on={f.state === 'playing' || f.state === 'online'} class:away={f.state === 'away'}></span>
+            </button>
+          {:else}
+            <button type="button" class="sm-emptyState sm-emptyAction" onclick={() => openFriends('friends')} data-no-drag>{t('friends.sideEmpty')}</button>
+          {/each}
         </div>
       </div>
     </div>
@@ -258,14 +293,6 @@
           <button type="button" class="sm-dockChip sm-dockConsole" onclick={openConsole}>{t('scenes.servermenu.consoleChip', 'КОНСОЛЬ')}</button>
         {/if}
       </div>
-      <div class="sm-dockStatusBox">
-        <div class="sm-dockStatusRow">
-          <span class="sm-dockStatus">{selected && maint(selected) ? t('scenes.servermenu.unavailable') : t('scenes.servermenu.dockReady')}</span>
-          <span class="sm-grow"></span>
-          <span class="sm-dockPercent">0%</span>
-        </div>
-        <div class="sm-dockTrack"><div class="sm-dockFill" style="width:0"></div></div>
-      </div>
     </div>
     <CutButton class="sm-play" variant={disabled ? 'disabled' : 'play'} shape="M0,0 L168,0 L180,12 L180,44 L12,44 L0,32 Z" viewBox="0 0 180 44"
                disabled={disabled} onclick={() => selected && play(selected)}>
@@ -277,3 +304,4 @@
 {#if menuAnchor}
   <AccountMenu anchor={menuAnchor} onclose={() => (menuAnchor = null)} />
 {/if}
+<FriendsPopup server={selected ? name(selected) : ''} />

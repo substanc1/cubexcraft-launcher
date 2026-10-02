@@ -9,6 +9,7 @@
   import Update from './scenes/Update.svelte';
   import Debug from './scenes/Debug.svelte';
   import { initGameEvents } from './lib/game.js';
+  import { initFriends } from './lib/friends.svelte.js';
   import { i18n } from './lib/i18n.svelte.js';
   import Notifications from './components/Notifications.svelte';
   import Processing from './components/Processing.svelte';
@@ -25,6 +26,7 @@
   onMount(async () => {
     try {
       initGameEvents();
+      initFriends();
       // проверка обновления уже идёт в ядре с самого старта - окно не ждёт её ответа (раньше ждало, до 4 с без сети)
       updateCheck = call('self_update_check').catch(() => null);
       const init = await call('app_init');

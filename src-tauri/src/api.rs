@@ -151,3 +151,21 @@ pub fn urlencode(s: &str) -> String {
     }
     out
 }
+
+/// друзья/статус (launcher-friends.js на сайте): GET без тела или POST с телом; ответ - снимок
+/// { friends, requests, notifications } (+ result/username у действий), 204 - Value::Null
+pub async fn social(http: &reqwest::Client, token: &str, path: &str, body: Option<&Value>) -> Result<Value, ApiError> {
+    let url = format!("{API}/{path}");
+    let req = match body {
+        Some(b) => http.post(url).json(b),
+        None => http.get(url),
+    };
+    let r = req.bearer_auth(token).timeout(std::time::Duration::from_secs(15)).send().await.map_err(net)?;
+    if r.status() == reqwest::StatusCode::NO_CONTENT {
+        return Ok(Value::Null);
+    }
+    if !r.status().is_success() {
+        return Err(fail(r).await);
+    }
+    r.json().await.map_err(net)
+}

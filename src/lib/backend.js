@@ -98,5 +98,47 @@ const mock = {
     setTimeout(() => emit('game-started', { pid: 1234 }));
     return { pid: 1234 };
   },
+  // друзья (только браузер): состояние в памяти, ответы как у сайта
+  async friends_get() { return mockFriends.snap(); },
+  async friends_action({ action, username, server }) { return mockFriends.act(action, username, server); },
+  async notes_action({ action, id }) { return mockFriends.notes(action, id); },
+  async presence_set() {},
   async game_kill() { emit('game-exit', { code: -1, killed: true }); },
+};
+
+const mockFriends = {
+  friends: [
+    { username: 'Minison434', uuid: '1', state: 'playing', server: 'CubeXCraft', playingSec: 4320 },
+    { username: 'v_kirsanov', uuid: '2', state: 'online', server: null, playingSec: null },
+    { username: 'nullbyte', uuid: '3', state: 'away', server: null, playingSec: null },
+    { username: 'm0rf', uuid: '4', state: 'offline', server: null, playingSec: null },
+  ],
+  requests: [{ username: 'ironwolf', uuid: '5', mutual: 2 }, { username: 'kate_tech', uuid: '6', mutual: 0 }],
+  notifications: [
+    { id: '3', kind: 'invite', actor: 'Minison434', server: 'CubeXCraft', unread: true, agoSec: 180 },
+    { id: '2', kind: 'accepted', actor: 'nullbyte', server: '', unread: true, agoSec: 60000 },
+    { id: '1', kind: 'playing', actor: 'v_kirsanov', server: 'OneBlock', unread: false, agoSec: 90000 },
+  ],
+  snap() { return JSON.parse(JSON.stringify({ friends: this.friends, requests: this.requests, notifications: this.notifications })); },
+  async act(action, username, server) {
+    await sleep(150);
+    const name = String(username || '').trim();
+    if (action === 'request') {
+      if (name.toLowerCase() === 'nobody') throw 'Игрок не найден';
+      return { result: 'sent', username: name, ...this.snap() };
+    }
+    if (action === 'accept') {
+      this.requests = this.requests.filter(r => r.username !== name);
+      this.friends.push({ username: name, uuid: name, state: 'online', server: null, playingSec: null });
+    }
+    if (action === 'decline') this.requests = this.requests.filter(r => r.username !== name);
+    if (action === 'remove') this.friends = this.friends.filter(f => f.username !== name);
+    return { username: name, ...this.snap() };
+  },
+  async notes(action, id) {
+    await sleep(100);
+    if (action === 'read') this.notifications.forEach(n => (n.unread = false));
+    else this.notifications = this.notifications.filter(n => n.id !== id);
+    return this.snap();
+  },
 };

@@ -21,6 +21,17 @@
 .sm-railNav.selected { border-color: var(--red); background: var(--redTr); color: var(--red); box-shadow: 0 0 4px var(--glow-color), 0 0 12px var(--glow-color); }
 .sm-deauth { font-size: 13px; line-height: 17.16px; }
 .sm-deauth:hover { border-color: var(--red); color: var(--red); }
+/* иконки рейла (макет handoff-10): SVG-контур маской, цвет кнопки */
+.sm-railNav { position: relative; }
+.sm-railIcon {
+  display: block; width: 20px; height: 20px; background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat;
+}
+/* счётчик входящих заявок в друзья */
+.sm-railBadge {
+  position: absolute; top: -6px; right: -6px; min-width: 14px; height: 14px; padding: 0 3px;
+  font-family: 'JetBrains Mono'; font-size: 9px; line-height: 14px; text-align: center; color: #fff; background: var(--red);
+}
 
 /* ---- шапка (x 66..1246, h 80) */
 .sm-header {
@@ -142,6 +153,28 @@
   padding: 14px; font-family: 'JetBrains Mono'; font-size: 11px; line-height: 14.52px; height: 46px;
   color: var(--text-secondary); border: 1px solid var(--border-dark); background: var(--panel-flat); white-space: nowrap;
 }
+.sm-emptyAction { width: 100%; text-align: left; cursor: pointer; }
+.sm-emptyAction:hover { border-color: var(--yellow); color: var(--yellow); }
+
+/* друзья в правой колонке (макет handoff-10): аватар 26, ник, статус, точка в сети */
+.sm-friendsSection { align-items: stretch; gap: 8px; }
+.sm-friendsSection .sm-tag { margin-bottom: 2px; }
+.sm-friend {
+  display: flex; align-items: center; gap: 11px; padding: 9px 11px; width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--border-dark); background: var(--panel-flat);
+}
+.sm-friend:hover { border-color: var(--red); }
+.sm-friendAvatar { width: 26px; height: 26px; flex: none; display: block; overflow: hidden; }
+.sm-friendAvatar.off { opacity: .6; }
+.sm-friendWho { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.sm-friendName { font-family: 'JetBrains Mono'; font-size: 12px; line-height: 15.84px; color: var(--text-hover); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sm-friendStatus {
+  margin-top: 3px; font-family: 'JetBrains Mono'; font-size: 9.5px; line-height: 12.54px; letter-spacing: .1em;
+  color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sm-friendDot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: #5c3a40; }
+.sm-friendDot.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.sm-friendDot.away { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
 
 /* ---- док запуска (h 90) */
 .sm-dock {
@@ -159,12 +192,6 @@
   border: 1px solid var(--border-dark); background: transparent; white-space: nowrap;
 }
 .sm-dockConsole { cursor: pointer; }
-.sm-dockStatusBox { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 6px; }
-.sm-dockStatusRow { height: 14px; display: flex; }
-.sm-dockStatus { font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--text-secondary); white-space: nowrap; }
-.sm-dockPercent { font-family: 'JetBrains Mono Bold'; font-size: 10px; line-height: 13.2px; color: var(--red); }
-.sm-dockTrack { height: 4px; background: var(--border-dark); }
-.sm-dockFill { height: 4px; background: var(--red); }
 
 .sm-dock .sm-play {
   position: absolute; right: 24px; top: 23px; width: 180px; height: 44px;
