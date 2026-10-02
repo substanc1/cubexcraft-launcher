@@ -186,6 +186,7 @@ async fn auth_login(state: State<'_, AppState>, login: String, password: String)
 
 #[tauri::command]
 async fn auth_restore(state: State<'_, AppState>, login: String) -> R<Value> {
+    timing::mark("вход: запрос от интерфейса");
     let acc = state.store.load_accounts();
     let a = acc.accounts.iter().find(|a| a.login.eq_ignore_ascii_case(&login)).cloned().ok_or("auth.invalidtoken")?;
     let pre = match state.prefetch.lock().unwrap().me.take() {
@@ -368,10 +369,9 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
     #[cfg(target_os = "linux")]
     cmd.env("__GL_THREADED_OPTIMIZATIONS", "0");
     let mut child = cmd.spawn().map_err(|e| format!("Не удалось запустить игру: {e}"))?;
-    timing::mark("игра запущена (java)");
-    if let Some(pid) = child.id() {
-        gamewindow::bring_to_front_when_shown(pid);
-    }
+    timing::mark(&format!("игра запущена (java {})", paths::game_arch()));
+    let window_seen = child.id().map(gamewindow::bring_to_front_when_shown).unwrap_or_default();
+    let win_arm64 = cfg!(windows) && paths::game_arch() == "arm64";
     let log_path = paths::cxl_dir().join("logs").join("game-latest.log");
     let _ = std::fs::create_dir_all(log_path.parent().unwrap());
     let log = Arc::new(Mutex::new(std::fs::File::create(&log_path).ok()));
@@ -415,6 +415,12 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
         };
         if let Some(st) = app2.try_state::<AppState>() {
             *st.game_kill.lock().unwrap() = None;
+        }
+        // Windows ARM: игра на ARM64-Java упала, не открыв окно - дальше x64-Java (в эмуляции, но работает)
+        if win_arm64 && !killed && code != 0 && !window_seen.load(Ordering::Relaxed) {
+            let _ = std::fs::write(paths::win_arm64_off_marker(), "");
+            timing::mark("ARM64-Java: игра упала до окна - переключено на x64");
+            let _ = app2.emit("game-log", json!({ "line": "[CubeXCraft] Игра на ARM64-Java не запустилась - следующий запуск будет на x64-Java" }));
         }
         let _ = app2.emit("game-exit", json!({ "code": code, "killed": killed }));
     });
@@ -564,7 +570,11 @@ fn open_url(url: String) -> R<()> {
 fn start_prefetch(state: &AppState) {
     let mut p = state.prefetch.lock().unwrap();
     let http = state.http.clone();
-    p.update = Some(tauri::async_runtime::spawn(async move { selfupdate::check(&http).await }));
+    p.update = Some(tauri::async_runtime::spawn(async move {
+        let r = selfupdate::check(&http).await;
+        timing::mark("предзагрузка: обновление проверено");
+        r
+    }));
     let s = state.settings.lock().unwrap().clone();
     let auto = s.get("autoAuth").and_then(|v| v.as_bool()).unwrap_or(false);
     let login = s.get("login").and_then(|v| v.as_str()).map(String::from);
@@ -572,9 +582,18 @@ fn start_prefetch(state: &AppState) {
         let acc = state.store.load_accounts();
         if let Some(a) = acc.accounts.iter().find(|a| a.login.eq_ignore_ascii_case(&login)) {
             let (http, token) = (state.http.clone(), a.token.clone());
-            p.me = Some((a.login.clone(), tauri::async_runtime::spawn(async move { api::me(&http, &token).await })));
+            p.me = Some((a.login.clone(), tauri::async_runtime::spawn(async move {
+                let r = api::me(&http, &token).await;
+                timing::mark(&format!("предзагрузка: сессия {}", if r.is_ok() { "ок" } else { "ошибка" }));
+                r
+            })));
             let (http, token) = (state.http.clone(), a.token.clone());
-            p.profiles = Some((a.token.clone(), tauri::async_runtime::spawn(async move { api::profiles(&http, &token).await })));
+            p.profiles = Some((a.token.clone(), tauri::async_runtime::spawn(async move {
+                let r = api::profiles(&http, &token).await;
+                timing::mark("предзагрузка: список серверов");
+                r
+            })));
+            timing::mark("предзагрузка: запросы отправлены");
         }
     }
 }

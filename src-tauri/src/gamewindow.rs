@@ -18,15 +18,18 @@ pub fn size(app: &tauri::AppHandle) -> (u32, u32) {
     (w, ((w as f64) * 9.0 / 16.0).round() as u32)
 }
 
+/// флаг «окно игры появилось» (для отката ARM64 -> x64); на macOS/Linux окно не отслеживается
 #[cfg(not(windows))]
-pub fn bring_to_front_when_shown(_pid: u32) {}
+pub fn bring_to_front_when_shown(_pid: u32) -> std::sync::Arc<std::sync::atomic::AtomicBool> {
+    Default::default()
+}
 
 /// Windows не даёт процессу перехватить фокус («foreground lock»): окно игры открывалось под лаунчером и
 /// браузером и только мигало в панели задач. Лаунчер ждёт окно игры (класс GLFW30) и выводит его вперёд,
 /// пока оно действительно не станет активным (до 3 попыток). Поверх всех навсегда не закрепляется.
 /// Что произошло - пишется в cxl/logs/game-window.log.
 #[cfg(windows)]
-pub fn bring_to_front_when_shown(pid: u32) {
+pub fn bring_to_front_when_shown(pid: u32) -> std::sync::Arc<std::sync::atomic::AtomicBool> {
     use std::io::Write;
     use std::time::{Duration, Instant};
     use windows_sys::Win32::UI::WindowsAndMessaging::*;
@@ -42,12 +45,15 @@ pub fn bring_to_front_when_shown(pid: u32) {
         AllowSetForegroundWindow(pid);
     }
     log(format!("игра pid {pid}, ждём окно"));
+    let seen = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let seen_out = seen.clone();
     std::thread::spawn(move || {
         while start.elapsed() < Duration::from_secs(300) {
             std::thread::sleep(Duration::from_millis(200));
             let Some(h) = find_game_window(pid) else { continue };
             log(format!("окно найдено: {}", describe(h)));
             crate::timing::mark("окно игры появилось");
+            seen.store(true, std::sync::atomic::Ordering::Relaxed);
             std::thread::sleep(Duration::from_millis(300));
             for attempt in 1..=3 {
                 unsafe {
@@ -70,6 +76,7 @@ pub fn bring_to_front_when_shown(pid: u32) {
         }
         log("окно игры не появилось за 5 минут".into());
     });
+    seen_out
 }
 
 /// Вперёд по очереди, пока не получится: z-порядок (TOPMOST -> NOTOPMOST), SetForegroundWindow из потока,

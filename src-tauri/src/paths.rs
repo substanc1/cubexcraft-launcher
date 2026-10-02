@@ -37,10 +37,16 @@ pub fn default_updates_dir() -> PathBuf {
     app_dir().join("updates")
 }
 
-/// архитектура игры (Java + natives). Windows - всегда x64, как у старого лаунчера (на ARM - эмуляция x64;
-/// нативную ARM64-Java под Parallels/OpenGL ещё не проверяли). Остальные ОС - архитектура машины.
+/// метка «ARM64-Java на этой Windows не работает» (cxl/win-arm64-off): ставит лаунчер, если игра на ARM64 упала,
+/// не открыв окно - дальше запускается x64-Java, как у старого лаунчера
+pub fn win_arm64_off_marker() -> PathBuf {
+    cxl_dir().join("win-arm64-off")
+}
+
+/// архитектура игры (Java + natives) - архитектура машины. Windows на ARM (Snapdragon, Parallels на Mac) тоже
+/// на родной ARM64-Java: x64-Java в эмуляции грузила сборку в разы дольше. Откат на x64 - по метке выше.
 pub fn game_arch() -> &'static str {
-    if cfg!(windows) {
+    if cfg!(windows) && win_arm64_off_marker().exists() {
         "x86-64"
     } else {
         machine_arch()
