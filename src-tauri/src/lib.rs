@@ -514,6 +514,19 @@ pub fn run() {
             index: Arc::new(Mutex::new(index)),
             game_kill: Mutex::new(None),
         })
+        .setup(|app| {
+            // страховка: если интерфейс не показал окно (ошибка JS и т.п.) - показать через 3 с
+            if let Some(w) = app.get_webview_window("main") {
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    if !w.is_visible().unwrap_or(true) {
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
+                });
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             app_init, settings_save, auth_login, auth_restore, auth_remember, auth_logout, accounts_list,
             profiles_list, server_ping, game_play, game_kill, game_running, sync_cancel,

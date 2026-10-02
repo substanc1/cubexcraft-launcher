@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { app, SCENE_SIZE, switchScene, errorHandle, t } from './lib/app.svelte.js';
   import { call } from './lib/backend.js';
   import { applyTheme } from './lib/theme.js';
@@ -46,8 +46,10 @@
       errorHandle(e);
     }
     ready = true;
-    // окно создаётся скрытым (tauri.conf visible:false) - показываем после первой отрисовки, без белой вспышки
-    requestAnimationFrame(() => call('window_show'));
+    // окно создаётся скрытым (tauri.conf visible:false) - показываем после первой отрисовки, без белой вспышки.
+    // Не через requestAnimationFrame: WebKit (macOS/Linux) в скрытом окне его не вызывает - окно так и не появлялось
+    await tick();
+    call('window_show');
   });
 
   const size = $derived(SCENE_SIZE[app.scene] || SCENE_SIZE.login);

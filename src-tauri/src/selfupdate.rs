@@ -146,6 +146,11 @@ fn newer(remote: &str, local: &str) -> bool {
 }
 
 pub async fn check(http: &reqwest::Client) -> Option<Release> {
+    // macOS: замена бинарника внутри подписанного .app может сломать подпись - обновление бандла целиком сделаем
+    // отдельно, пока новые версии ставятся из .dmg с сайта
+    if cfg!(target_os = "macos") {
+        return None;
+    }
     let r = http
         .get(format!("{}/cxl/launcher/{}.json", crate::api::SITE, platform_key()))
         .timeout(Duration::from_secs(4))
