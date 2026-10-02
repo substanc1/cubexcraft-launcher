@@ -5,17 +5,18 @@
   import { call } from '../lib/backend.js';
   import IconButton from './IconButton.svelte';
   import logo from '../assets/images/logo.png';
+  import { popIn, popOut, fadeQuick } from '../lib/transitions.js';
 </script>
 
 {#if app.processing.visible}
-  <div class="overlay">
+  <div class="overlay" in:fadeQuick out:fadeQuick={{ duration: 160 }}>
     <div class="dim"></div>
     <div class="controls">
       <IconButton glyph="—" tip={t('scenes.servermenu.minimizeTooltip')} onclick={() => call('window_minimize')} />
       <IconButton glyph="✕" kind="exit" tip={t('scenes.servermenu.exitTooltip')} onclick={() => call('window_close')} />
     </div>
     <div class="center">
-      <div class="card">
+      <div class="card" in:popIn={{ delay: 40 }} out:popOut>
         <div class="cardHeader">
           <img src={logo} alt="" height="20" />
           <span class="brand">CUBEXCRAFT</span>
@@ -30,8 +31,7 @@
 {/if}
 
 <style>
-  .overlay { position: absolute; inset: 0; z-index: 40; animation: fade .25s ease-out; }
-  @keyframes fade { from { opacity: 0; } }
+  .overlay { position: absolute; inset: 0; z-index: 40; }
   .dim { position: absolute; inset: 0; background: rgba(4, 4, 12, 0.92); }
   .controls { position: absolute; right: 29px; top: 34px; display: flex; gap: 10px; }
   .center { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }

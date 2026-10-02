@@ -1,7 +1,7 @@
 <script>
   // ServerMenuScene.showSwitchAccountMenu: контекстное меню под блоком профиля (minX, maxY + 6):
   // быстрые аккаунты (до 3), разделитель, «Добавить аккаунт» / «Лимит аккаунтов (3) исчерпан»
-  import { app, t, processRequest, switchScene, errorHandle } from '../lib/app.svelte.js';
+  import { app, t, processRequest, switchScene, reloadScene, errorHandle } from '../lib/app.svelte.js';
   import { call } from '../lib/backend.js';
   let { anchor, onclose } = $props();
 
@@ -17,8 +17,7 @@
       app.profiles = await processRequest(t('overlay.processing.text.profiles'), call('profiles_list'));
       app.selected = null;
       // экран серверов пересоздаётся (пинги/выбор), как reset() в старом лаунчере
-      await switchScene('login', false);
-      await switchScene('servermenu', false);
+      reloadScene();
     } catch (e) {
       // сессия этого аккаунта умерла - на экран входа с его логином
       app.settings.login = acc.login;

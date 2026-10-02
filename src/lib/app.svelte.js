@@ -24,6 +24,8 @@ export const app = $state({
   gameLog: [], // строки лога игры (экран debug)
   gameRunning: false,
   selfUpdate: null, // найденная новая версия лаунчера
+  navDir: 1, // направление последнего перехода: 1 - вперёд, -1 - назад (для анимации)
+  sceneNonce: 0, // +1 = пересоздать текущий экран (reloadScene)
 });
 
 let notifSeq = 0;
@@ -70,7 +72,14 @@ function hideProcessing() {
 
 export async function switchScene(name, addToFlow = true) {
   if (addToFlow) app.sceneFlow.push(name);
+  app.navDir = addToFlow ? 1 : -1;
   app.scene = name;
+}
+
+// пересоздать текущий экран (смена аккаунта: пинги/выбор сервера заново), как reset() в старом лаунчере
+export function reloadScene() {
+  app.navDir = 1;
+  app.sceneNonce++;
 }
 
 // FxStage.back: экраны с isDisableReturnBack (update) при возврате пропускаются - из лога игры назад в меню

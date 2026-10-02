@@ -1,9 +1,10 @@
 <script>
   // overlay/addaccount (AddAccountOverlay, CenterOverlay): по центру поверх размытой сцены. Перед входом текущий
   // аккаунт запоминается (QuickAccounts.rememberCurrent), новый становится текущим и первым в быстром списке.
-  import { app, t, processRequest, switchScene } from '../lib/app.svelte.js';
+  import { app, t, processRequest, reloadScene } from '../lib/app.svelte.js';
   import { call } from '../lib/backend.js';
   import IconButton from './IconButton.svelte';
+  import { popIn, popOut } from '../lib/transitions.js';
 
   let login = $state('');
   let password = $state('');
@@ -38,8 +39,7 @@
       app.profiles = await processRequest(t('overlay.processing.text.profiles'), call('profiles_list'));
       app.selected = null;
       close();
-      await switchScene('login', false);
-      await switchScene('servermenu', false);
+      reloadScene();
     } catch (e) {
       error = t('overlay.addaccount.authFailed');
       app.blurred = true;
@@ -49,7 +49,7 @@
 
 {#if app.addAccountOpen}
   <div class="aa-wrap">
-    <div class="aa-dialog">
+    <div class="aa-dialog" in:popIn out:popOut>
       <div class="aa-head">
         <span class="aa-heading">{t('overlay.addaccount.header')}</span>
         <span class="aa-close"><IconButton glyph="✕" kind="close" tip={t('dialogs.apply.close-dialogTooltip')} onclick={close} /></span>

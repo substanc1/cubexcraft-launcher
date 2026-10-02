@@ -16,6 +16,7 @@
   import Dialog from './components/Dialog.svelte';
   import AddAccount from './components/AddAccount.svelte';
   import SelfUpdate from './components/SelfUpdate.svelte';
+  import { sceneIn, sceneOut } from './lib/transitions.js';
 
   const scenes = { login: Login, servermenu: ServerMenu, settings: Settings, update: Update, debug: Debug };
   let ready = $state(false);
@@ -52,18 +53,23 @@
     call('window_show');
   });
 
-  const Scene = $derived(scenes[app.scene]);
 </script>
 
 {#if ready}
   <div class="window" class:freeze={import.meta.env.DEV && new URLSearchParams(location.search).has('freeze')}
        style="width:{WINDOW_SIZE[0]}px;height:{WINDOW_SIZE[1]}px">
-    <div class="sceneWrap" class:blurred={app.blurred}>
-      {#if Scene}
-        <Scene />
-      {:else}
-        <div class="todo">{app.scene}</div>
-      {/if}
+    <div class="sceneWrap" class:blurred={app.blurred} class:calm={app.settings && app.settings.reduceEffects}>
+      <!-- каждый экран - свой слой: новый проявляется поверх старого (lib/transitions.js) -->
+      {#key app.scene + ':' + app.sceneNonce}
+        <div class="sceneLayer" in:sceneIn out:sceneOut>
+          {#if scenes[app.scene]}
+            {@const Scene = scenes[app.scene]}
+            <Scene />
+          {:else}
+            <div class="todo">{app.scene}</div>
+          {/if}
+        </div>
+      {/key}
     </div>
     {#if app.selfUpdate}<SelfUpdate />{/if}
     <AddAccount />
@@ -75,7 +81,9 @@
 {/if}
 
 <style>
-  .sceneWrap { position: absolute; inset: 0; }
+  .sceneWrap { position: absolute; inset: 0; transition: filter .28s ease-out; }
+  .sceneWrap.calm { transition: none; }
+  .sceneLayer { position: absolute; inset: 0; z-index: 1; transform-origin: 50% 50%; }
   /* FxStage.disable(): GaussianBlur(150) на сцене под оверлеем */
   .sceneWrap.blurred { filter: blur(50px); }
   /* dev: ?freeze - анимации стоят в исходном положении, как на статичных эталонах JavaFX */
