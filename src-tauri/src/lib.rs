@@ -565,8 +565,9 @@ fn open_url(url: String) -> R<()> {
     open::that_detached(url).map_err(|e| e.to_string())
 }
 
-/// пока поднимается интерфейс: проверка обновления (заодно прогревает DNS+TLS до сайта) и, если включён автовход
-/// с сохранённой сессией, проверка этой сессии и список серверов - тем же токеном, параллельно
+/// пока поднимается интерфейс: проверка обновления (заодно прогревает DNS+TLS до сайта) и, если есть сохранённая
+/// сессия, проверка этой сессии и список серверов - тем же токеном, параллельно. Не только при автовходе: игрок
+/// с сохранённым входом почти всегда жмёт «ВОЙТИ», и к клику ответ уже готов (без этого вход шёл ~1 с)
 fn start_prefetch(state: &AppState) {
     let mut p = state.prefetch.lock().unwrap();
     let http = state.http.clone();
@@ -576,9 +577,8 @@ fn start_prefetch(state: &AppState) {
         r
     }));
     let s = state.settings.lock().unwrap().clone();
-    let auto = s.get("autoAuth").and_then(|v| v.as_bool()).unwrap_or(false);
     let login = s.get("login").and_then(|v| v.as_str()).map(String::from);
-    if let (true, Some(login)) = (auto, login) {
+    if let Some(login) = login {
         let acc = state.store.load_accounts();
         if let Some(a) = acc.accounts.iter().find(|a| a.login.eq_ignore_ascii_case(&login)) {
             let (http, token) = (state.http.clone(), a.token.clone());
