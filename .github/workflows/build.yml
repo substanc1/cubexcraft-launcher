@@ -1,0 +1,49 @@
+# Сборка CubeXCraft Launcher на машинах GitHub: macOS (универсальный .app + .dmg) и Linux ARM64.
+# Windows x64 и Linux x86_64 собираются у нас (ПК владельца / VPS). Запуск: вкладка Actions -> build -> Run workflow.
+name: build
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - run: npm install --no-fund --no-audit
+      - run: npx tauri build --target universal-apple-darwin --bundles app,dmg
+      - name: collect
+        run: |
+          mkdir out
+          cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg out/CubeX-macos.dmg
+          cp src-tauri/target/universal-apple-darwin/release/CubeX out/CubeX-macos-universal
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: out/
+
+  linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq libwebkit2gtk-4.1-dev librsvg2-dev libxdo-dev libayatana-appindicator3-dev build-essential file
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm install --no-fund --no-audit
+      - run: npx tauri build --no-bundle
+      - run: mkdir out && cp src-tauri/target/release/CubeX out/CubeX-linux-arm64 && ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64
+          path: out/

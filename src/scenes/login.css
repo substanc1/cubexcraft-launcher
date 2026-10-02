@@ -1,0 +1,109 @@
+/* Экран входа. Геометрия - из раскладки JavaFX (tools/snap -> scenes_login_login.layout.txt).
+   Высоты строк = метрики JavaFX: Unbounded 1.24em, JetBrains Mono 1.32em, Manrope 1.366em; контейнеры JavaFX
+   округляет вверх до целого пикселя - здесь это явные высоты. Классы с префиксом lg- (файл подключается глобально). */
+.lg-layout { position: relative; width: 930px; height: 560px; border: 1px solid var(--border-dark); overflow: hidden; }
+
+/* #header: рамка 1px со всех сторон (видна только нижняя) - отступы детей как в JavaFX */
+.lg-header { position: absolute; left: 0; right: 0; top: 0; height: 48px; border: 1px solid transparent; border-bottom-color: var(--border-dark); }
+.lg-brand { position: absolute; left: 18px; top: 0; bottom: 0; display: flex; align-items: center; gap: 9px; }
+.lg-brand img { height: 20px; width: 17.92px; }
+.lg-word { font-family: 'Unbounded ExtraBold'; font-size: 15px; line-height: 18.6px; color: var(--text); }
+.lg-accent { color: var(--red); }
+.lg-controls { position: absolute; right: 18px; top: 0; bottom: 0; display: flex; align-items: center; gap: 9px; }
+
+.lg-statusPill {
+  width: 108px; height: 31px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: default;
+  background: var(--gray); border: 1px solid var(--border-dark); padding: 0 12px;
+}
+.lg-statusPill .lg-dot { font-size: 8px; line-height: 10.93px; color: var(--green); }
+.lg-statusText { font-family: 'JetBrains Mono'; font-size: 11px; line-height: 14.52px; color: var(--header); white-space: nowrap; }
+
+.lg-center { position: absolute; left: 0; right: 0; top: 48px; bottom: 26px; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.lg-column { width: 420px; margin-top: 16px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+
+.lg-secure { height: 14px; display: flex; align-items: flex-start; gap: 12px; }
+.lg-secureLink { font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--yellow); white-space: nowrap; }
+.lg-divider { flex: 1; margin-top: 6px; height: 0; border-top: 1px solid var(--yellow); opacity: 0.4; }
+
+.lg-headingGroup { height: 50px; display: grid; justify-items: start; align-items: start; }
+.lg-heading { grid-area: 1 / 1; position: relative; top: 1px; font-family: 'Unbounded ExtraBold'; font-size: 40px; line-height: 49.6px; white-space: nowrap; }
+/* position: relative - поверх призраков (у них transform, без этого они рисуются сверху) */
+.lg-main { position: relative; color: var(--text-hover); text-shadow: 0 0 4px var(--glow-color), 0 0 12px var(--glow-color); }
+.lg-ghostYellow { color: var(--yellow-ghost); transform: translateX(3px); }
+.lg-ghostRed { color: var(--red-ghost); transform: translateX(-3px); }
+.no-effects .lg-main { text-shadow: none; }
+.lg-flicker { animation: lg-flicker 8s linear infinite; }
+@keyframes lg-flicker {
+  0%, 96% { opacity: 1; }
+  97% { opacity: 0.6; }
+  98.5% { opacity: 0.9; }
+  100% { opacity: 1; }
+}
+
+.lg-subheading { height: 15px; font-family: 'JetBrains Mono'; font-size: 11px; line-height: 14.52px; color: var(--text-secondary); }
+
+.lg-content { margin-top: 4px; display: flex; flex-direction: column; gap: 10px; }
+.lg-field { position: relative; display: block; height: 60px; }
+.lg-field input {
+  width: 100%; height: 100%;
+  background: var(--panel-flat) no-repeat 14px center;
+  border: 1px solid var(--border-dark);
+  font-family: 'JetBrains Mono'; font-size: 13px; color: var(--text);
+  padding: 0 0 0 48px; cursor: text;
+}
+.lg-field input::placeholder { color: var(--prompt); opacity: 1; }
+.lg-field input:focus { background-color: var(--panel-focus); color: var(--text-hover); border-color: var(--red); box-shadow: 0 0 4px var(--glow-color), 0 0 12px var(--glow-color); }
+.lg-login input { background-image: url('../assets/images/icons/user.png'); }
+.lg-password input { background-image: url('../assets/images/icons/lock.png'); padding-right: 70px; }
+.lg-revealToggle {
+  position: absolute; right: 12px; top: 19px; height: 23px; padding: 0 7px;
+  display: flex; align-items: center;
+  font-family: 'JetBrains Mono'; font-size: 9.5px; line-height: 12.54px; color: var(--text-secondary);
+  border: 1px solid var(--border-dark); background: transparent;
+}
+.lg-revealToggle.selected { border-color: var(--border-warn); color: var(--yellow); }
+
+.lg-checks { height: 22px; display: flex; align-items: center; gap: 24px; }
+.lg-checks .check:nth-child(1) { width: 88px; }
+.lg-checks .check:nth-child(2) { width: 146px; }
+.lg-grow { flex: 1; }
+.lg-forgotPass { font-family: 'JetBrains Mono'; font-size: 11px; line-height: 14.52px; color: var(--red); }
+.lg-forgotPass:hover { color: var(--red-hover); }
+
+.lg-validationBanner {
+  display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+  border: 1px solid var(--border-warn); background: var(--yellowTr);
+  font-family: 'JetBrains Mono'; font-size: 11.5px; line-height: 15.18px; color: var(--yellow);
+}
+
+.lg-column .authButton {
+  height: 46px; margin-top: 2px;
+  font-family: 'Unbounded SemiBold'; font-size: 15px; line-height: 18.6px;
+}
+.no-effects .authButton { filter: none; }
+
+.lg-registerPane { height: 14px; display: flex; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+.lg-textLogin { font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--text-secondary); white-space: pre; }
+.lg-createAccount { font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--red); }
+.lg-createAccount:hover { color: var(--red-hover); }
+
+.lg-secondaryButton {
+  height: 40px; width: 100%;
+  font-family: 'JetBrains Mono'; font-size: 11px; line-height: 14.52px; color: var(--header);
+  background: var(--panel-flat); border: 1px solid var(--border-dark);
+}
+.lg-secondaryButton:hover { border-color: var(--yellow); background: var(--yellowTr); color: var(--yellow); }
+
+.lg-scanlines { position: absolute; inset: 0; pointer-events: none; background: url('../assets/images/scanlines.png') repeat; }
+.lg-sweepBand {
+  position: absolute; left: 0; right: 0; top: 0; height: 90px; pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--redTr), transparent);
+  animation: lg-sweep 9s linear infinite;
+}
+@keyframes lg-sweep { from { transform: translateY(-108px); } to { transform: translateY(650px); } }
+
+.lg-footer { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; border: 1px solid transparent; border-top-color: var(--border-dark); }
+.lg-net { position: absolute; left: 16px; top: 0; bottom: 0; display: flex; align-items: center; gap: 8px;
+          font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--green); }
+.lg-net .lg-dot { font-family: 'Manrope'; font-size: 8px; line-height: 10.93px; }
+.lg-copyright { position: absolute; right: 16px; top: 3px; font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--text-secondary); }

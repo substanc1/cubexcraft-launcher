@@ -1,0 +1,172 @@
+/* Экран серверов (1246x640). Геометрия - из раскладки JavaFX (tools/snap -> scenes_servermenu_servermenu.layout.txt).
+   Высоты строк = метрики JavaFX: Unbounded 1.24em, JetBrains Mono 1.32em, Manrope 1.366em. */
+.sm-root { position: relative; width: 1246px; height: 640px; overflow: hidden; }
+.sm-grow { flex: 1; }
+.sm-tag { font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; height: 14px; color: var(--yellow); white-space: nowrap; }
+
+/* ---- рейл навигации (VBox 66px, отступы 14, шаг 16; рамка 1px со всех сторон, видна правая) */
+.sm-rail {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 66px;
+  display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 14px 0;
+  background: var(--panel); border: 1px solid transparent; border-right-color: var(--border-dark);
+}
+.sm-railLogo { height: 26px; width: 23.29px; flex: none; }
+.sm-railDivider { width: 22px; height: 1px; flex: none; background: var(--border-dark); }
+.sm-railNav, .sm-deauth {
+  width: 40px; height: 40px; flex: none; display: grid; place-items: center;
+  font-family: 'JetBrains Mono'; font-size: 15px; line-height: 19.8px; color: var(--text-secondary);
+  border: 1px solid transparent; background: transparent;
+}
+.sm-railNav:hover { color: var(--text-hover); }
+.sm-railNav.selected { border-color: var(--red); background: var(--redTr); color: var(--red); box-shadow: 0 0 4px var(--glow-color), 0 0 12px var(--glow-color); }
+.sm-deauth { font-size: 13px; line-height: 17.16px; }
+.sm-deauth:hover { border-color: var(--red); color: var(--red); }
+
+/* ---- шапка (x 66..1246, h 80) */
+.sm-header {
+  position: absolute; left: 66px; right: 0; top: 0; height: 80px;
+  background: var(--panel); border: 1px solid transparent; border-bottom-color: var(--border-dark);
+}
+.sm-headerLeft { position: absolute; left: 29px; top: 0; bottom: 0; display: flex; align-items: center; gap: 14px; }
+.sm-word { width: 133px; font-family: 'Unbounded ExtraBold'; font-size: 15px; line-height: 18.6px; color: var(--text); white-space: nowrap; }
+.sm-accent { color: var(--red); }
+.sm-navChip {
+  height: 22px; padding: 0 7px; display: flex; align-items: center;
+  font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--yellow);
+  border: 1px solid var(--border-warn); white-space: nowrap;
+}
+.sm-searchBox { position: relative; width: 240px; height: 34px; display: block; }
+.sm-search {
+  width: 100%; height: 100%; padding: 0 10px 0 32px;
+  background: var(--panel-flat); border: 1px solid var(--border-dark);
+  font-family: 'JetBrains Mono'; font-size: 11px; color: var(--text);
+}
+.sm-search::placeholder { color: var(--text-secondary); opacity: 1; }
+.sm-search:focus { border-color: var(--red); }
+.sm-searchGlyph { position: absolute; left: 12px; top: 9px; font-size: 12px; line-height: 16.39px; color: var(--text-secondary); pointer-events: none; }
+
+/* блок профиля: справа 117, сверху 34 (+1 рамка шапки) */
+.sm-userBlock { position: absolute; right: 117px; top: 34px; }
+.sm-userCard {
+  height: 30px; display: flex; align-items: center; gap: 12px; padding: 0 10px 0 5px;
+  background: linear-gradient(to right, #1C0A2E, #0A0616); border: 1px solid var(--violet-border); cursor: pointer;
+}
+.sm-userCard:hover { border-color: var(--yellow); }
+.sm-avatarSlot { width: 32px; height: 32px; margin: -1px 0; display: grid; place-items: center; flex: none; }
+.sm-nickname { font-family: 'Unbounded SemiBold'; font-size: 12px; line-height: 15px; color: var(--account-name-text); white-space: nowrap; }
+.sm-switch { width: 8px; font-family: 'JetBrains Mono Bold'; font-size: 13px; line-height: 17.16px; color: var(--violet-text); display: grid; place-items: center; }
+.sm-userCard:hover .sm-switch { color: var(--yellow); }
+.sm-controls { position: absolute; right: 29px; top: 34px; display: flex; gap: 10px; }
+
+/* ---- тело: основная колонка + правая 270 (y 80..550) */
+.sm-body { position: absolute; left: 66px; right: 0; top: 80px; bottom: 90px; display: flex; gap: 16px; }
+.sm-main { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.sm-mainColumn { display: flex; flex-direction: column; gap: 16px; padding: 18px 24px 16px 24px; }
+.sm-panel { background: var(--panel); border: 1px solid var(--border-dark); }
+
+.sm-hero { display: flex; flex-direction: column; gap: 8px; padding: 16px 20px 18px 20px; flex: none; }
+.sm-heroTagRow { height: 14px; display: flex; align-items: center; gap: 10px; }
+.sm-badgeWipe {
+  font-family: 'JetBrains Mono Bold'; font-size: 9px; line-height: 11.88px; color: var(--yellow);
+  background: var(--yellowTr); border: 1px solid var(--yellow); padding: 2px 6px;
+}
+.sm-heroName { font-family: 'Unbounded ExtraBold'; font-size: 28px; line-height: 34.72px; height: 35px; color: var(--text-hover); white-space: nowrap; }
+.sm-heroChips { height: 28px; display: flex; gap: 8px; }
+.sm-heroChip { height: 28px; padding: 0 11px; display: flex; align-items: center; font-family: 'JetBrains Mono'; font-size: 11px; line-height: 14.52px; color: #333333; border: 1px solid transparent; } /* у .heroChip нет -fx-text-fill: цвет modena по умолчанию */
+/* JavaFX Label с -fx-line-spacing 3: шаг строк 23px, первая базовая линия на ascent (14.9) от верха */
+.sm-heroDesc { max-width: 720px; margin-bottom: -3px; font-family: 'Manrope'; font-size: 14px; line-height: 23px; color: var(--text-secondary); }
+.sm-heroDesc > span { position: relative; top: -2px; }
+.sm-onlineBox { width: 200px; display: flex; flex-direction: column; gap: 4px; }
+.sm-onlineRow { height: 30px; display: flex; align-items: baseline; gap: 6px; }
+.sm-onlineValue { font-family: 'Unbounded ExtraBold'; font-size: 24px; line-height: 29.76px; color: var(--red); }
+.sm-onlineMax { font-family: 'JetBrains Mono'; font-size: 12px; line-height: 15.84px; color: var(--text-secondary); }
+.sm-onlineCaption { height: 13px; font-family: 'JetBrains Mono'; font-size: 9px; line-height: 11.88px; color: var(--text-secondary); }
+.sm-loadTrack { width: 200px; height: 4px; background: var(--border-dark); }
+.sm-loadFill { height: 4px; background: var(--red); }
+
+.sm-gridSection { display: flex; flex-direction: column; gap: 14px; }
+.sm-gridHead { height: 14px; display: flex; align-items: center; gap: 12px; }
+.sm-filters { display: flex; gap: 8px; }
+.sm-filterChip {
+  padding: 5px 10px; font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px;
+  border: 1px solid var(--border-dark); background: var(--panel-flat); color: var(--text-secondary);
+}
+.sm-filterChip.active { border-color: var(--red); background: var(--redTr); color: var(--text-hover); }
+.sm-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* карточка сервера 230x105: рамка 1, содержимое 14/15/13/18, полоска слева 3px */
+.sm-card {
+  position: relative; width: 230px; height: 105px; text-align: left;
+  background: var(--panel-flat); border: 1px solid var(--border-dark); cursor: pointer;
+}
+.sm-card:hover { border-color: var(--border-light); }
+.sm-card.active { border-color: var(--red); background: linear-gradient(to bottom right, var(--panel-focus), var(--panel-flat)); box-shadow: 0 0 4px var(--glow-color), 0 0 12px var(--glow-color); }
+.sm-card.maintenance { opacity: 0.5; }
+.sm-cardRail { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--border-dark); }
+.sm-cardRail.active { background: linear-gradient(to bottom, var(--red), var(--yellow)); }
+.sm-cardRail.maintenance { background: var(--border-warn); }
+.sm-cardContent { position: absolute; inset: 0; padding: 14px 15px 13px 18px; display: flex; flex-direction: column; }
+.sm-cardTop { height: 19px; display: flex; align-items: center; }
+.sm-cardName { flex: 1; font-family: 'Unbounded SemiBold'; font-size: 15px; line-height: 18.6px; color: var(--text-hover); white-space: nowrap; overflow: hidden; }
+.sm-dot {
+  width: 7px; height: 7px; border-radius: 4px; flex: none;
+  background: var(--green); box-shadow: 0 0 4px var(--green), 0 0 2px var(--green);
+  animation: sm-pulse 2.4s ease-in-out infinite;
+}
+.sm-dot.maint { background: var(--yellow); box-shadow: 0 0 4px var(--yellow), 0 0 2px var(--yellow); }
+@keyframes sm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.sm-cardMeta { height: 21px; padding-top: 7px; font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--text-secondary); white-space: nowrap; }
+.sm-cardTrack { margin-top: 12px; height: 3px; flex: none; background: var(--border-dark); }
+.sm-cardFill { display: block; height: 3px; background: var(--red); }
+.sm-cardFill.active { background: var(--yellow); }
+.sm-cardBottom { margin-top: 7px; height: 14px; display: flex; }
+.sm-cardOnline, .sm-cardTag { font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--text-secondary); white-space: nowrap; }
+.sm-cardTag { color: var(--header); }
+.sm-cardTag.active { color: var(--yellow); }
+
+.sm-mods { display: flex; flex-direction: column; gap: 12px; padding: 14px 20px 16px 20px; }
+.sm-modsHead { display: flex; align-items: center; gap: 12px; }
+.sm-modsCount { font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--text-secondary); }
+.sm-modsList { display: flex; flex-wrap: wrap; gap: 8px; }
+.sm-modChip {
+  padding: 7px 12px; font-family: 'JetBrains Mono'; font-size: 11px; line-height: 14.52px;
+  border: 1px solid var(--border-dark); background: var(--panel-flat); color: var(--text-secondary);
+}
+.sm-modToggle { border-color: var(--red); background: var(--redTr); color: var(--red); cursor: pointer; }
+
+/* правая колонка 270: рамка слева, отступы 22/28/18/18, между блоками 24 */
+.sm-side { width: 270px; flex: none; overflow-y: auto; overflow-x: hidden; border: 1px solid transparent; border-left-color: var(--border-dark); }
+.sm-sideColumn { display: flex; flex-direction: column; gap: 24px; padding: 22px 28px 18px 18px; }
+.sm-sideSection { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.sm-emptyState {
+  padding: 14px; font-family: 'JetBrains Mono'; font-size: 11px; line-height: 14.52px; height: 46px;
+  color: var(--text-secondary); border: 1px solid var(--border-dark); background: var(--panel-flat); white-space: nowrap;
+}
+
+/* ---- док запуска (h 90) */
+.sm-dock {
+  position: absolute; left: 66px; right: 0; bottom: 0; height: 90px;
+  background: var(--panel-flat); border: 1px solid transparent; border-top-color: var(--border-dark);
+}
+.sm-dockRow { position: absolute; left: 24px; right: 220px; top: 0; bottom: 0; display: flex; align-items: center; gap: 20px; }
+.sm-dockTitle { min-width: 140px; display: flex; flex-direction: column; }
+.sm-dockCaption { height: 13px; font-family: 'JetBrains Mono'; font-size: 9.5px; line-height: 12.54px; color: #8A7A3A; }
+.sm-dockName { font-family: 'Unbounded SemiBold'; font-size: 18px; line-height: 22.32px; color: var(--text-hover); white-space: nowrap; }
+.sm-dockChips { display: flex; align-items: center; gap: 8px; }
+.sm-dockChip {
+  height: 28px; padding: 0 10px; display: flex; align-items: center;
+  font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--text-secondary);
+  border: 1px solid var(--border-dark); background: transparent; white-space: nowrap;
+}
+.sm-dockConsole { cursor: pointer; }
+.sm-dockStatusBox { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 6px; }
+.sm-dockStatusRow { height: 14px; display: flex; }
+.sm-dockStatus { font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--text-secondary); white-space: nowrap; }
+.sm-dockPercent { font-family: 'JetBrains Mono Bold'; font-size: 10px; line-height: 13.2px; color: var(--red); }
+.sm-dockTrack { height: 4px; background: var(--border-dark); }
+.sm-dockFill { height: 4px; background: var(--red); }
+
+.sm-dock .sm-play {
+  position: absolute; right: 24px; top: 23px; width: 180px; height: 44px;
+  font-family: 'Unbounded SemiBold'; font-size: 15px; line-height: 18.6px;
+}

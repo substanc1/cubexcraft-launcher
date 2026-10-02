@@ -1,0 +1,31 @@
+/* Загрузка клиента (930x560). Геометрия - scenes_update_update.layout.txt. */
+.up-layout { position: relative; width: 930px; height: 560px; overflow: hidden; }
+.up-header { position: absolute; left: 0; right: 0; top: 0; height: 60px; border: 1px solid transparent; border-bottom-color: var(--border-dark); }
+.up-title { position: absolute; left: 20px; top: 0; bottom: 0; display: flex; align-items: center; gap: 10px; }
+.up-title img { height: 18px; width: 16.13px; }
+.up-title span { height: 16px; font-family: 'Unbounded SemiBold'; font-size: 13px; line-height: 16.12px; color: var(--text-hover); white-space: nowrap; }
+.up-controls { position: absolute; right: 20px; top: 19px; display: flex; gap: 10px; }
+
+.up-body { position: absolute; left: 0; right: 0; top: 60px; bottom: 46px; display: flex; }
+.up-detail {
+  width: 160px; flex: none; padding: 20px 14px 18px 18px;
+  border: 1px solid transparent; border-right-color: var(--border-dark);
+}
+.up-speedOn { display: flex; flex-direction: column; gap: 20px; }
+.up-stat { display: flex; flex-direction: column; gap: 4px; }
+.up-speed { height: 40px; font-family: 'Unbounded ExtraBold'; font-size: 32px; line-height: 39.68px; color: var(--red); text-shadow: 0 0 4px var(--glow-color), 0 0 12px var(--glow-color); }
+.up-speedText, .up-caption { height: 13px; font-family: 'JetBrains Mono'; font-size: 9px; line-height: 11.88px; color: var(--text-secondary); }
+.up-volume { min-height: 17px; font-family: 'JetBrains Mono'; font-size: 12px; line-height: 15.84px; color: var(--text); }
+.up-speedErr { font-family: 'Unbounded ExtraBold'; font-size: 22px; line-height: 27.28px; color: var(--yellow); }
+.up-output {
+  flex: 1; overflow-y: auto; padding: 7px 12px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text;
+  background: var(--panel-flat); color: var(--text-secondary); font-family: 'JetBrains Mono'; font-size: 11.5px; line-height: 15.18px;
+}
+
+/* в оригинале ProgressBar лежал в Pane и не растягивался (100px) - здесь на всю ширину дорожки, как задумано */
+.up-progressTrack { position: absolute; left: 0; right: 0; bottom: 40px; height: 6px; background: var(--border-dark); }
+.up-progress { height: 6px; background: var(--red); box-shadow: 0 0 4px var(--glow-color), 0 0 12px var(--glow-color); transition: width .12s linear; }
+.up-progress.error { background: var(--yellow); }
+
+.up-footer { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; background: var(--panel-flat); border: 1px solid transparent; border-top-color: var(--border-dark); }
+.up-footerStatus { position: absolute; left: 20px; top: 12px; font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--text-secondary); white-space: nowrap; }

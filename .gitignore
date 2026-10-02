@@ -1,0 +1,5 @@
+node_modules/
+dist/
+dev-ref/
+src-tauri/target/
+src-tauri/gen/

@@ -1,0 +1,99 @@
+/* Настройки (930x560). Геометрия - из раскладки JavaFX (scenes_settings_globalsettings.layout.txt). */
+.st-layout { position: relative; width: 930px; height: 560px; overflow: hidden; }
+/* #header (global.css): нижняя рамка, рамка 1px со всех сторон -> дети смещены на 1 */
+.st-header { position: absolute; left: 0; right: 0; top: 0; height: 80px; border: 1px solid transparent; border-bottom-color: var(--border-dark); }
+.st-back { position: absolute; left: 28px; top: 34px; }
+.st-title {
+  position: absolute; left: 80px; top: 34px; height: 32px; max-width: 400px; display: flex; align-items: center;
+  font-family: 'Unbounded SemiBold'; font-size: 18px; line-height: 22.32px; color: var(--text-hover); white-space: nowrap;
+}
+.st-controls { position: absolute; right: 29px; top: 34px; display: flex; gap: 10px; }
+
+/* #settingslist: ScrollPane 20/20/0/20 от тела (y 80), отступ 15 + рамка 1 */
+.st-list {
+  position: absolute; left: 20px; right: 20px; top: 80px; bottom: 20px;
+  padding: 15px;
+  background: var(--panel-flat); border: 1px solid var(--border-dark);
+}
+/* область просмотра (viewport) внутри отступа 15 - прокручивается только она, как ScrollPane */
+.st-viewport { position: relative; width: calc(100% - 12px); height: 100%; overflow-y: auto; overflow-x: hidden; }
+.st-content { display: flex; flex-direction: column; gap: 15px; }
+.st-card { display: flex; flex-direction: column; gap: 10px; }
+.st-settingsList { margin-top: 10px; }
+.st-h { height: 19px; font-family: 'Unbounded SemiBold'; font-size: 14px; line-height: 19px; color: var(--text-hover); white-space: nowrap; }
+.st-row { display: flex; gap: 10px; align-items: flex-start; }
+.st-texts { display: flex; flex-direction: column; }
+.st-lh { height: 19px; font-family: 'Unbounded SemiBold'; font-size: 14px; line-height: 19px; color: var(--text-hover); white-space: nowrap; }
+.st-ld { height: 17px; font-family: 'Manrope'; font-size: 12px; line-height: 17px; color: var(--text-secondary); white-space: nowrap; }
+
+/* CheckBox (global.css): рамка 1, отступ 4, метка modena «галочка» 12.83px -> 23x23 */
+.st-check {
+  width: 23px; height: 23px; flex: none; padding: 4px; display: grid; place-items: center;
+  background: var(--panel-flat); border: 1px solid var(--border-dark); cursor: pointer;
+}
+.st-check.on { border-color: var(--red); }
+.st-check svg { width: 12.83px; height: 12.83px; fill: var(--red); }
+
+.st-ramRow { height: 38px; display: flex; gap: 8px; }
+.st-ram {
+  height: 38px; padding: 0 16px; font-family: 'JetBrains Mono Bold'; font-size: 11px; line-height: 14.52px;
+  background: var(--panel-flat); border: 1px solid var(--border-dark); color: var(--text-secondary); cursor: pointer;
+}
+.st-ram:hover { border-color: var(--red); color: var(--text-hover); }
+.st-ram.selected { border-color: var(--red); background: var(--redTr); color: var(--text-hover); box-shadow: 0 0 4px var(--glow-color), 0 0 12px var(--glow-color); }
+
+.st-swatchWrap { position: relative; }
+.st-swatchBtn {
+  width: 54px; height: 34px; padding: 0 8px; display: flex; align-items: center; gap: 6px;
+  background: #0C0509; border: 1px solid var(--border-dark); cursor: pointer;
+}
+.st-swatchBtn:hover { border-color: var(--red); }
+.st-swatch { width: 26px; height: 20px; flex: none; border: 1px solid rgba(0, 0, 0, 0.55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55); }
+.st-arrow { font-size: 10px; line-height: 15px; color: var(--text-secondary); }
+.st-swatchBtn:hover .st-arrow { color: var(--red); }
+.st-picker {
+  position: absolute; left: 0; top: 38px; z-index: 30; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  background: var(--panel-flat); border: 1px solid var(--border-dark); box-shadow: 0 0 4px var(--glow-color), 0 0 12px var(--glow-color);
+}
+.st-grid { width: 184px; display: flex; flex-wrap: wrap; gap: 6px; }
+.st-cell { width: 24px; height: 24px; border: 1px solid rgba(0, 0, 0, 0.55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55); cursor: pointer; }
+.st-cell:hover { border: 2px solid var(--red); box-shadow: none; }
+.st-hex {
+  width: 184px; padding: 6px 8px; font-family: 'JetBrains Mono'; font-size: 12px;
+  background: var(--gray); border: 1px solid var(--border-dark); color: var(--text);
+}
+.st-hex::placeholder { color: var(--text-secondary); }
+.st-hex:focus { border-color: var(--red); }
+
+.st-action {
+  height: 34px; padding: 0 14px; font-family: 'JetBrains Mono'; font-size: 11px; line-height: 14.52px;
+  background: var(--panel-flat); border: 1px solid var(--border-dark); color: var(--header); cursor: pointer;
+}
+.st-action:hover { border-color: var(--red); background: var(--redTr); color: var(--text-hover); }
+
+.st-lang { display: flex; flex-direction: column; }
+.st-langRow { height: 40px; margin-top: 10px; display: flex; gap: 10px; }
+.st-langDesc { height: 40px; line-height: 40px; }
+.st-combo { position: relative; width: 296px; }
+.st-comboBtn {
+  width: 100%; height: 40px; padding: 5px 30px 5px 10px; text-align: left;
+  background: var(--glass) url('../assets/images/icons/checkbox_arrow_button.png') no-repeat right 8px center / 20px 11px;
+  border-radius: 10px; color: var(--text); font-family: 'Manrope'; font-size: 12px; cursor: pointer;
+}
+.st-comboList {
+  position: absolute; left: 0; right: 0; top: 52px; z-index: 30; padding: 0; display: flex; flex-direction: column;
+  background: var(--gray); border-radius: 10px; overflow: hidden;
+}
+.st-comboItem { text-align: left; padding: 5px; background: var(--gray); color: var(--text); font-family: 'Manrope'; font-size: 12px; }
+.st-comboItem:hover { background: var(--glass); color: var(--text-hover); }
+.st-comboItem.selected { background: var(--glass); color: var(--text-hover); font-weight: bold; }
+
+.st-folder { height: 41px; display: flex; align-items: center; background: var(--panel-flat); border: 1px solid var(--border-dark); }
+.st-path {
+  flex: 1; height: 39px; padding: 0 10px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: 'JetBrains Mono'; font-size: 12px; color: var(--text-secondary); background: transparent;
+}
+.st-path:hover { text-decoration: underline; }
+.st-changeDir { background: var(--redTr); border-color: var(--red); margin-right: 1px; }
+.st-changeDir svg path { fill: var(--header); }
+.st-changeDir:hover svg path { fill: var(--red); }
