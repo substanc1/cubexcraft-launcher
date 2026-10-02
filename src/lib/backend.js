@@ -94,10 +94,13 @@ const mock = {
       await sleep(120);
       emit('sync-progress', { phase: i < 3 ? 'check' : 'download', done: (total * i) / 20, total, file: 'mods/example.jar', speed: 12.4e6 });
     }
-    emit('game-log', { line: '[mock] Minecraft запущен' });
+    emit('game-log', { line: 'C:\\Users\\Player\\AppData\\Roaming\\CubeXCraft\\cxl\\java\\bin\\java.exe -Xmx6144M -XX:+UseG1GC -cp ... cpw.mods.bootstraplauncher.BootstrapLauncher --username substanc1 --accessToken ********' });
     setTimeout(() => emit('game-started', { pid: 1234 }));
+    setTimeout(() => mockGameLog(), 50);
     return { pid: 1234 };
   },
+  async logs_open() {},
+  async log_error() {},
   // друзья (только браузер): состояние в памяти, ответы как у сайта
   async friends_get() { return mockFriends.snap(); },
   async friends_action({ action, username, server }) { return mockFriends.act(action, username, server); },
@@ -142,3 +145,45 @@ const mockFriends = {
     return this.snap();
   },
 };
+
+// поток журнала игры для проверки экрана debug в браузере (?crash - в конце вылет с сохранённым журналом)
+function mockGameLog() {
+  const T = s => `[15:39:${String(10 + (s % 50)).padStart(2, '0')}]`;
+  const lines = [];
+  const info = (s, th, src, msg) => lines.push(`${T(s)} [${th}/INFO] [${src}/]: ${msg}`);
+  for (let i = 0; i < 6; i++) info(0, 'main', 'cp.mo.mo.LaunchServiceHandler', `Launching target 'forgeclient' with arguments [--version, 1.21.1, --gameDir, C:/Users/Player/AppData/Roaming/CubeXCraft/updates/CubeXCraft]`.slice(0, 60 + i * 9));
+  lines.push('WARNING: You are running with unsupported Java 21. To make full use of the Vector API, please update Apache Lucene.');
+  lines.push(`${T(1)} [main/WARN] [mixin/]: Error loading class: com/buuz135/functionalstorage/world/EnderSavedData (java.lang.ClassNotFoundException: com.buuz135.functionalstorage.world.EnderSavedData)`);
+  lines.push(`${T(1)} [main/WARN] [mixin/]: @Mixin target com.buuz135.functionalstorage.world.EnderSavedData was not found mixins.extendedae.json:MixinEnderSavedData from mod extendedae`);
+  info(2, 'modloading-worker-0', 'co.ze.ne.st.StorageManager', "StorageManager: active backend is 'json'");
+  info(2, 'modloading-worker-0', 'co.ze.ne.ch.AfkManager', 'Loaded AFK data for 0 players');
+  info(2, 'modloading-worker-0', 'co.ze.ne.te.HomeManager', '[HomeManager] Config loaded — safetyCheck=true, maxHomes=5, warmup=3s, tpCooldown=0s, setCooldown=0s, delCooldown=0s, crossDimension=true');
+  info(2, 'modloading-worker-0', 'Puzzles Lib', 'Constructing components for puzzleslib:client');
+  info(2, 'modloading-worker-0', 'STDOUT', '[com.zerog.neoessentials.util.MessageUtil:logInfo:930]: [NeoEssentials-Lang] INFO: [Lang] Active language: en_us');
+  for (let i = 0; i < 4; i++) info(3, 'modloading-worker-0', 'co.ze.ne.NeoEssentials', '═══════════════════════════════');
+  for (const m of ['water', 'lava', 'milk', 'honey', 'oil', 'steam']) lines.push(`${T(4)} [modloading-sync-worker/WARN] [GTCEu/]: FluidStorageKey{gtceu:liquid} already has an associated fluid for material gtceu:${m}`);
+  for (let i = 0; i < 160; i++) info(5 + (i >> 4), 'Render thread', i % 3 ? 'ne.mi.cl.re.mo.ModelManager' : 'GTCEu', `Loaded model batch ${i} (${(i * 37) % 900} models)`);
+  lines.push(`${T(20)} [Render thread/ERROR] [ne.mi.cl.re.te.TextureAtlas/]: Using missing texture, unable to load gtceu:textures/block/casings/voltage/uv/side.png`);
+  lines.push('java.io.FileNotFoundException: gtceu:textures/block/casings/voltage/uv/side.png');
+  lines.push('\tat net.minecraft.server.packs.resources.ResourceProvider.lambda$getResourceOrThrow$1(ResourceProvider.java:22)');
+  lines.push('\tat java.base/java.util.Optional.orElseThrow(Optional.java:403)');
+  lines.push('\tat net.minecraft.client.renderer.texture.SpriteLoader.loadSprite(SpriteLoader.java:166)');
+  lines.push('\tat java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1768)');
+  lines.push('\t... 4 more');
+  info(21, 'Render thread', 'ne.mi.cl.Minecraft', 'Backend library: LWJGL version 3.3.4+7');
+  lines.push(`${T(22)} [Render thread/WARN] [ne.mi.cl.Options/]: Skipping bad option: lastServer:`);
+  info(23, 'Render thread', 'cubexcraft', 'CubexTitleScreen registered');
+  let i = 0;
+  const iv = setInterval(() => {
+    for (let k = 0; k < 25 && i < lines.length; k++) emit('game-log', { line: lines[i++] });
+    if (i >= lines.length) {
+      clearInterval(iv);
+      if (params.has('crash')) {
+        emit('game-log', { line: `${T(30)} [Render thread/FATAL] [ne.mi.cl.Minecraft/]: Unreported exception thrown!` });
+        emit('game-log', { line: 'java.lang.IllegalStateException: Rendersystem called from wrong thread' });
+        emit('game-log', { line: '\tat com.mojang.blaze3d.systems.RenderSystem.assertOnRenderThread(RenderSystem.java:262)' });
+        setTimeout(() => emit('game-exit', { code: 1, killed: false, saved: 'game-2026-10-02_13-50-12.log' }), 300);
+      }
+    }
+  }, 40);
+}

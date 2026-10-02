@@ -5,6 +5,7 @@ mod crypto;
 mod gamewindow;
 mod java;
 mod launch;
+mod logs;
 mod migrate;
 mod paths;
 mod ping;
@@ -383,6 +384,8 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
     cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     #[cfg(target_os = "linux")]
     cmd.env("__GL_THREADED_OPTIMIZATIONS", "0");
+    logs::prune_client(cwd);
+    let started = std::time::SystemTime::now();
     let mut child = cmd.spawn().map_err(|e| format!("Не удалось запустить игру: {e}"))?;
     timing::mark(&format!("игра запущена (java {})", paths::game_arch()));
     let window_seen = child.id().map(gamewindow::bring_to_front_when_shown).unwrap_or_default();
@@ -391,11 +394,12 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
     let _ = std::fs::create_dir_all(log_path.parent().unwrap());
     let log = Arc::new(Mutex::new(std::fs::File::create(&log_path).ok()));
     let menu_seen = Arc::new(AtomicBool::new(false));
+    let mut readers = Vec::new();
     for out in [child.stdout.take().map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>), child.stderr.take().map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>)].into_iter().flatten() {
         let app = app.clone();
         let log = log.clone();
         let menu_seen = menu_seen.clone();
-        tauri::async_runtime::spawn(async move {
+        readers.push(tauri::async_runtime::spawn(async move {
             // байтами, а не lines(): одна строка не в UTF-8 (java.util.logging пишет в кодировке системы)
             // обрывала весь дальнейший журнал игры
             let mut reader = BufReader::new(out);
@@ -417,12 +421,13 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
                 }
                 let _ = app.emit("game-log", json!({ "line": line }));
             }
-        });
+        }));
     }
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();
     *state.game_kill.lock().unwrap() = Some(tx);
     let _ = app.emit("game-started", json!({ "pid": child.id() }));
     let app2 = app.clone();
+    let client_dir = cwd.to_path_buf();
     tauri::async_runtime::spawn(async move {
         let (code, killed) = tokio::select! {
             r = child.wait() => (r.ok().and_then(|s| s.code()).unwrap_or(-1), false),
@@ -439,7 +444,12 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
             timing::mark("ARM64-Java: игра упала до окна - переключено на x64");
             let _ = app2.emit("game-log", json!({ "line": "[CubeXCraft] Игра на ARM64-Java не запустилась - следующий запуск будет на x64-Java" }));
         }
-        let _ = app2.emit("game-exit", json!({ "code": code, "killed": killed }));
+        // дочитать вывод игры до конца, затем при вылете сохранить журнал в cxl/logs/crashes
+        for r in readers {
+            let _ = tokio::time::timeout(std::time::Duration::from_secs(3), r).await;
+        }
+        let saved = if !killed && code != 0 { logs::save_game_crash(code, &client_dir, started) } else { None };
+        let _ = app2.emit("game-exit", json!({ "code": code, "killed": killed, "saved": saved }));
     });
     Ok(())
 }
@@ -554,6 +564,23 @@ fn copy_tree(from: &std::path::Path, to: &std::path::Path) -> R<()> {
 #[tauri::command]
 fn open_path(path: String) -> R<()> {
     open::that_detached(path).map_err(|e| e.to_string())
+}
+
+/// папка журналов (cxl/logs; crash - сразу crashes)
+#[tauri::command]
+fn logs_open(crash: Option<bool>) -> R<()> {
+    let mut dir = logs::dir();
+    if crash.unwrap_or(false) && dir.join("crashes").is_dir() {
+        dir = dir.join("crashes");
+    }
+    let _ = std::fs::create_dir_all(&dir);
+    open::that_detached(dir).map_err(|e| e.to_string())
+}
+
+/// ошибка, показанная игроку в интерфейсе - в журнал ошибок этого запуска лаунчера
+#[tauri::command]
+fn log_error(msg: String) {
+    logs::save_launcher_error(&msg);
 }
 
 // ---------------------------------------------------------------- друзья (launcher-friends.js на сайте)
@@ -725,7 +752,7 @@ pub fn run() {
             profiles_list, server_ping, game_play, game_kill, game_running, sync_cancel,
             timing_mark, window_show, window_minimize, window_close, open_url,
             friends_get, friends_action, notes_action, presence_set,
-            updates_dir_pick, updates_dir_change, open_path, self_update_check, self_update_apply
+            updates_dir_pick, updates_dir_change, open_path, logs_open, log_error, self_update_check, self_update_apply
         ])
         .run(tauri::generate_context!())
         .expect("error while running CubeXCraft launcher");

@@ -21,7 +21,6 @@ export const app = $state({
   quickAccounts: [], // [{ login, username }] - до 3, для меню быстрой смены
   addAccountOpen: false,
   playing: null, // { profile, error } - текущий запуск
-  gameLog: [], // строки лога игры (экран debug)
   gameRunning: false,
   selfUpdate: null, // найденная новая версия лаунчера
   navDir: 1, // направление последнего перехода: 1 - вперёд, -1 - назад (для анимации)
@@ -42,6 +41,8 @@ export function notify(head, message) {
 export function errorHandle(e) {
   const msg = typeof e === 'string' ? e : (e && (e.message || e.toString())) || String(e);
   notify('Error', requestError(msg));
+  // в cxl/logs/crashes/launcher-<время>.log (один файл на запуск лаунчера)
+  call('log_error', { msg }).catch(() => {});
 }
 
 // ProcessingOverlay.processRequest: показать карточку "ЗАГРУЗКА..." с описанием, на успехе скрыть сразу,
