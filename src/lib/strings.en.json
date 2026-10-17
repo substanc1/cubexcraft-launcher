@@ -42,6 +42,7 @@
  "scenes.loginpassword.cancelTooltip": "Cancel login",
  "overlay.processing.processing.description": "LOADING...",
  "overlay.processing.text.auth": "Log-in",
+ "overlay.processing.text.twofa": "Confirm sign-in in Telegram: tap «✅ Это я» in the bot",
  "overlay.processing.text.authAvailability": "Updating available authorization methods",
  "overlay.processing.text.launcher": "Check for launcher updates",
  "overlay.processing.text.setprofile": "Change profile",

@@ -6,6 +6,25 @@
   import IconButton from './IconButton.svelte';
   import logo from '../assets/images/logo.png';
   import { popIn, popOut, fadeQuick } from '../lib/transitions.js';
+
+  // ожидание подтверждения в Telegram: отсчёт до конца запроса (app.processing.until) и «ОТМЕНА»
+  let now = $state(Date.now());
+  $effect(() => {
+    if (!app.processing.until) return;
+    now = Date.now();
+    const id = setInterval(() => (now = Date.now()), 1000);
+    return () => clearInterval(id);
+  });
+  const left = $derived.by(() => {
+    const s = Math.max(0, Math.round(((app.processing.until || 0) - now) / 1000));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  });
+  let cancelling = $state(false);
+  function cancel() {
+    if (cancelling) return;
+    cancelling = true;
+    Promise.resolve(app.processing.onCancel && app.processing.onCancel()).finally(() => (cancelling = false));
+  }
 </script>
 
 {#if app.processing.visible}
@@ -25,6 +44,15 @@
         </div>
         <div class="bar"><div class="run"></div></div>
         <div class="description" class:error={app.processing.error}>{app.processing.text}</div>
+        {#if !app.processing.error && (app.processing.until || app.processing.onCancel)}
+          <div class="waitRow">
+            {#if app.processing.until}<span class="left">{left}</span>{/if}
+            <span class="grow"></span>
+            {#if app.processing.onCancel}
+              <button type="button" class="cancel" disabled={cancelling} onclick={cancel}>{t('scenes.loginpassword.header-button-text')}</button>
+            {/if}
+          </div>
+        {/if}
       </div>
     </div>
   </div>
@@ -64,4 +92,14 @@
     overflow-wrap: anywhere;
   }
   .description.error { color: var(--red); }
+  .waitRow { margin-top: 12px; display: flex; align-items: center; gap: 10px; }
+  .grow { flex: 1; }
+  .left { font-family: 'JetBrains Mono'; font-size: 11.5px; color: var(--yellow); }
+  /* как .aa-submit окна «Добавить аккаунт», только красная */
+  .cancel {
+    height: 30px; padding: 0 16px; background: transparent; border: 1px solid var(--border-dark); color: var(--text-secondary);
+    font-family: 'JetBrains Mono Bold'; font-size: 11px; line-height: 14.52px; cursor: pointer;
+  }
+  .cancel:hover { border-color: var(--red); color: var(--text-hover); }
+  .cancel:disabled { opacity: .5; cursor: default; }
 </style>

@@ -9,6 +9,7 @@ mod logs;
 mod migrate;
 mod paths;
 mod ping;
+mod route;
 mod selfupdate;
 mod store;
 mod sync;
@@ -39,12 +40,14 @@ struct Prefetch {
 
 struct AppState {
     prefetch: Mutex<Prefetch>,
-    http: reqwest::Client,
     store: Store,
     settings: Mutex<Value>,
     session: Mutex<Option<Session>>,
     profiles: Mutex<Vec<Value>>,
     cancel: Arc<AtomicBool>,
+    /// вход ждёт подтверждения в Telegram: секрет запроса -> логин; флаг - игрок нажал «Отмена»
+    twofa: Mutex<Option<(String, String)>>,
+    twofa_cancel: Arc<AtomicBool>,
     index: Arc<Mutex<sync::Index>>,
     game_kill: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
     presence: Mutex<Presence>,
@@ -143,7 +146,8 @@ async fn app_init(state: State<'_, AppState>) -> R<Value> {
         if let Some(m) = migrate::read_old() {
             *state.settings.lock().unwrap() = store::with_defaults(m.settings);
             for c in m.credentials {
-                if let Ok((token, user)) = api::login(&state.http, &c.login, &c.password, &device()).await {
+                // "skip": с включённой 2FA аккаунт не переносится молча (без запроса в бот) - игрок войдёт сам
+                if let Ok(api::LoginOutcome::Done(token, user)) = api::login(&route::http(), &c.login, &c.password, &device(), "skip").await {
                     state.remember(&c.login, &token, &user);
                 }
             }
@@ -185,13 +189,72 @@ fn settings_save(state: State<'_, AppState>, settings: Value) -> R<()> {
 
 // ---------------------------------------------------------------- вход
 
+/// вход по паролю: { username, uuid, ... } или { twofa: { challenge, expiresIn, bot } } - тогда интерфейс
+/// показывает ожидание и зовёт auth_2fa_wait
 #[tauri::command]
 async fn auth_login(state: State<'_, AppState>, login: String, password: String) -> R<Value> {
-    let (token, user) = api::login(&state.http, &login, &password, &device()).await.map_err(String::from)?;
-    let out = user_json(&user);
-    *state.session.lock().unwrap() = Some(Session { login, token, user });
-    state.cleanup_gravit_once();
-    Ok(out)
+    match api::login(&route::http(), &login, &password, &device(), "poll").await.map_err(String::from)? {
+        api::LoginOutcome::Done(token, user) => {
+            let out = user_json(&user);
+            *state.session.lock().unwrap() = Some(Session { login, token, user });
+            state.cleanup_gravit_once();
+            Ok(out)
+        }
+        api::LoginOutcome::TwoFa(tf) => {
+            *state.twofa.lock().unwrap() = Some((tf.challenge.clone(), login));
+            Ok(json!({ "twofa": { "challenge": tf.challenge, "expiresIn": tf.expires_in, "bot": tf.bot } }))
+        }
+    }
+}
+
+/// ждать «✅ Это я» в Telegram-боте; ошибка "2fa.cancelled" - игрок сам нажал «Отмена»
+#[tauri::command]
+async fn auth_2fa_wait(state: State<'_, AppState>, challenge: String) -> R<Value> {
+    let login = match state.twofa.lock().unwrap().as_ref() {
+        Some((c, l)) if *c == challenge => l.clone(),
+        _ => return Err("2fa.cancelled".into()),
+    };
+    state.twofa_cancel.store(false, Ordering::SeqCst);
+    let mut net_errors = 0;
+    loop {
+        if state.twofa_cancel.load(Ordering::SeqCst) {
+            return Err("2fa.cancelled".into());
+        }
+        match api::twofa_poll(&route::http(), &challenge).await {
+            Ok(api::TwoFaPoll::Pending) => {
+                net_errors = 0;
+                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            }
+            Ok(api::TwoFaPoll::Done(token, user)) => {
+                *state.twofa.lock().unwrap() = None;
+                let out = user_json(&user);
+                *state.session.lock().unwrap() = Some(Session { login, token, user });
+                state.cleanup_gravit_once();
+                return Ok(out);
+            }
+            Err(e) => {
+                if state.twofa_cancel.load(Ordering::SeqCst) {
+                    return Err("2fa.cancelled".into());
+                }
+                // обрыв сети - пробуем ещё, ответ сервера (отклонён / истёк) - сразу игроку
+                if e.0.starts_with("Нет соединения") && net_errors < 5 {
+                    net_errors += 1;
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    continue;
+                }
+                *state.twofa.lock().unwrap() = None;
+                return Err(e.0);
+            }
+        }
+    }
+}
+
+#[tauri::command]
+async fn auth_2fa_cancel(state: State<'_, AppState>, challenge: String) -> R<()> {
+    state.twofa_cancel.store(true, Ordering::SeqCst);
+    *state.twofa.lock().unwrap() = None;
+    api::twofa_cancel(&route::http(), &challenge).await;
+    Ok(())
 }
 
 #[tauri::command]
@@ -206,9 +269,9 @@ async fn auth_restore(state: State<'_, AppState>, login: String) -> R<Value> {
     let me = match pre {
         Some(h) => match h.await {
             Ok(r) => r,
-            Err(_) => api::me(&state.http, &a.token).await,
+            Err(_) => api::me(&route::http(), &a.token).await,
         },
-        None => api::me(&state.http, &a.token).await,
+        None => api::me(&route::http(), &a.token).await,
     };
     timing::mark("вход: сессия проверена");
     match me {
@@ -247,8 +310,8 @@ fn auth_remember(state: State<'_, AppState>, remember: bool) -> R<Value> {
 async fn auth_logout(state: State<'_, AppState>) -> R<Value> {
     let sess = state.session.lock().unwrap().take();
     if let Some(s) = sess {
-        let _ = api::social(&state.http, &s.token, "presence/offline", Some(&json!({}))).await;
-        api::logout(&state.http, &s.token).await;
+        let _ = api::social(&route::http(), &s.token, "presence/offline", Some(&json!({}))).await;
+        api::logout(&route::http(), &s.token).await;
         state.forget(&s.login);
         state.save_settings();
     }
@@ -272,9 +335,9 @@ async fn profiles_list(state: State<'_, AppState>) -> R<Vec<Value>> {
     let fetched = match pre {
         Some(h) => match h.await {
             Ok(Ok(l)) => Ok(l),
-            _ => api::profiles(&state.http, &token).await,
+            _ => api::profiles(&route::http(), &token).await,
         },
-        None => api::profiles(&state.http, &token).await,
+        None => api::profiles(&route::http(), &token).await,
     };
     let mut list = fetched.map_err(String::from)?;
     timing::mark("список серверов получен");
@@ -306,6 +369,7 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
     let token = state.token()?;
     let profile = state.profiles.lock().unwrap().iter().find(|p| p["uuid"].as_str() == Some(uuid.as_str())).cloned().ok_or("Профиль не найден")?;
     state.cancel.store(false, Ordering::Relaxed);
+    route::ready().await; // маршрут (прямо или через ретранслятор РФ) выбран до скачивания
     let updates = store::updates_dir(&state.settings.lock().unwrap());
     let dir = profile["dir"].as_str().ok_or("dir")?.to_string();
     let asset_dir = profile["assetDir"].as_str().unwrap_or("assets").to_string();
@@ -320,18 +384,19 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
     let java_progress = move |done, total| {
         let _ = app2.emit("sync-progress", json!({ "stage": "java", "phase": "download", "done": done, "total": total, "filesDone": 0, "filesTotal": 1, "file": "java", "speed": 0 }));
     };
+    let http = route::http();
     let (java, m_libs, m_assets, m_client, gs) = tokio::join!(
-        java::ensure(&state.http, &java_progress),
-        api::manifest(&state.http, &token, "@cxl"),
-        api::manifest(&state.http, &token, &asset_dir),
-        api::manifest(&state.http, &token, &dir),
-        api::game_session(&state.http, &token),
+        java::ensure(&http, &java_progress),
+        api::manifest(&http, &token, "@cxl"),
+        api::manifest(&http, &token, &asset_dir),
+        api::manifest(&http, &token, &dir),
+        api::game_session(&http, &token),
     );
     let java = java?;
     timing::mark("Java, манифесты и токен игры получены");
 
     // 2. файлы: свои библиотеки, assets, клиент
-    let syncer = sync::Syncer { http: state.http.clone(), cancel: state.cancel.clone(), index: state.index.clone() };
+    let syncer = sync::Syncer { http: route::http(), cancel: state.cancel.clone(), index: state.index.clone() };
     let index_path = paths::cxl_dir().join("index.json");
     let libs_dir = paths::cxl_dir().join("libs");
     let res: R<()> = async {
@@ -355,6 +420,7 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
         client_dir: client_dir.clone(),
         assets_dir: updates.join(&asset_dir),
         cxl_libs: libs_dir,
+        relay: route::relay(),
         ram_mb: options.ram,
         full_screen: options.full_screen,
         auto_enter: options.auto_enter,
@@ -500,7 +566,8 @@ async fn window_close(app: tauri::AppHandle, state: State<'_, AppState>) -> R<()
     // друзьям сразу «не в сети» (иначе статус погаснет сам через 90 с)
     if let Ok(token) = state.token() {
         let empty = json!({});
-        let offline = api::social(&state.http, &token, "presence/offline", Some(&empty));
+        let http = route::http();
+        let offline = api::social(&http, &token, "presence/offline", Some(&empty));
         let _ = tokio::time::timeout(std::time::Duration::from_millis(1500), offline).await;
     }
     state.save_settings();
@@ -587,7 +654,7 @@ fn log_error(msg: String) {
 
 #[tauri::command]
 async fn friends_get(state: State<'_, AppState>) -> R<Value> {
-    api::social(&state.http, &state.token()?, "friends", None).await.map_err(String::from)
+    api::social(&route::http(), &state.token()?, "friends", None).await.map_err(String::from)
 }
 
 /// request | accept | decline | remove | invite (server - сборка, куда зовём)
@@ -597,7 +664,7 @@ async fn friends_action(state: State<'_, AppState>, action: String, username: St
         return Err("bad action".into());
     }
     let body = json!({ "username": username, "server": server });
-    api::social(&state.http, &state.token()?, &format!("friends/{action}"), Some(&body)).await.map_err(String::from)
+    api::social(&route::http(), &state.token()?, &format!("friends/{action}"), Some(&body)).await.map_err(String::from)
 }
 
 /// read (прочитать все) | dismiss (убрать одно)
@@ -607,7 +674,7 @@ async fn notes_action(state: State<'_, AppState>, action: String, id: Option<Str
         return Err("bad action".into());
     }
     let body = json!({ "id": id });
-    api::social(&state.http, &state.token()?, &format!("notifications/{action}"), Some(&body)).await.map_err(String::from)
+    api::social(&route::http(), &state.token()?, &format!("notifications/{action}"), Some(&body)).await.map_err(String::from)
 }
 
 /// интерфейс: online (лаунчер открыт) | away (свёрнут или без действий); сразу отправить
@@ -629,7 +696,7 @@ async fn presence_loop(app: tauri::AppHandle) {
             Some(server) => json!({ "state": "playing", "server": server }),
             None => json!({ "state": if p.ui == "away" { "away" } else { "online" } }),
         };
-        if let Ok(v) = api::social(&st.http, &token, "presence", Some(&body)).await {
+        if let Ok(v) = api::social(&route::http(), &token, "presence", Some(&body)).await {
             let _ = app.emit("friends-update", v);
         }
     }
@@ -642,7 +709,7 @@ async fn self_update_check(state: State<'_, AppState>) -> R<Option<selfupdate::R
     let pre = state.prefetch.lock().unwrap().update.take();
     let rel = match pre {
         Some(h) => h.await.ok().flatten(),
-        None => selfupdate::check(&state.http).await,
+        None => selfupdate::check(&route::http()).await,
     };
     timing::mark(&format!("проверка обновления: {}", rel.as_ref().map(|r| r.version.as_str()).unwrap_or("нет")));
     Ok(rel)
@@ -651,7 +718,7 @@ async fn self_update_check(state: State<'_, AppState>) -> R<Option<selfupdate::R
 #[tauri::command]
 async fn self_update_apply(app: tauri::AppHandle, state: State<'_, AppState>, release: selfupdate::Release) -> R<()> {
     let app2 = app.clone();
-    selfupdate::apply(&state.http, &release, &move |done, total| {
+    selfupdate::apply(&route::http(), &release, &move |done, total| {
         let _ = app2.emit("selfupdate-progress", json!({ "done": done, "total": total }));
     })
     .await?;
@@ -665,17 +732,19 @@ fn open_url(url: String) -> R<()> {
     if !(url.starts_with("https://") || url.starts_with("http://")) {
         return Err("bad url".into());
     }
-    open::that_detached(url).map_err(|e| e.to_string())
+    open::that_detached(route::site_url(&url)).map_err(|e| e.to_string())
 }
 
 /// пока поднимается интерфейс: проверка обновления (заодно прогревает DNS+TLS до сайта) и, если есть сохранённая
 /// сессия, проверка этой сессии и список серверов - тем же токеном, параллельно. Не только при автовходе: игрок
 /// с сохранённым входом почти всегда жмёт «ВОЙТИ», и к клику ответ уже готов (без этого вход шёл ~1 с)
 fn start_prefetch(state: &AppState) {
+    // каждый запрос сначала ждёт выбора маршрута (route::decide, обычно доли секунды): у кого режут прямой путь,
+    // ответ больше 16 КБ (список серверов) иначе висел бы до таймаута 60 с
     let mut p = state.prefetch.lock().unwrap();
-    let http = state.http.clone();
     p.update = Some(tauri::async_runtime::spawn(async move {
-        let r = selfupdate::check(&http).await;
+        route::ready().await;
+        let r = selfupdate::check(&route::http()).await;
         timing::mark("предзагрузка: обновление проверено");
         r
     }));
@@ -684,15 +753,17 @@ fn start_prefetch(state: &AppState) {
     if let Some(login) = login {
         let acc = state.store.load_accounts();
         if let Some(a) = acc.accounts.iter().find(|a| a.login.eq_ignore_ascii_case(&login)) {
-            let (http, token) = (state.http.clone(), a.token.clone());
+            let token = a.token.clone();
             p.me = Some((a.login.clone(), tauri::async_runtime::spawn(async move {
-                let r = api::me(&http, &token).await;
+                route::ready().await;
+                let r = api::me(&route::http(), &token).await;
                 timing::mark(&format!("предзагрузка: сессия {}", if r.is_ok() { "ок" } else { "ошибка" }));
                 r
             })));
-            let (http, token) = (state.http.clone(), a.token.clone());
+            let token = a.token.clone();
             p.profiles = Some((a.token.clone(), tauri::async_runtime::spawn(async move {
-                let r = api::profiles(&http, &token).await;
+                route::ready().await;
+                let r = api::profiles(&route::http(), &token).await;
                 timing::mark("предзагрузка: список серверов");
                 r
             })));
@@ -706,6 +777,7 @@ pub fn run() {
         return; // обновление со старого лаунчера поставлено, запущен установленный exe
     }
     timing::init();
+    route::init();
     let store = Store::open();
     let settings = store.load_settings();
     let index = sync::Index::load(&paths::cxl_dir().join("index.json"));
@@ -720,18 +792,20 @@ pub fn run() {
         }))
         .manage(AppState {
             prefetch: Mutex::new(Prefetch::default()),
-            http: api::client(),
             store,
             settings: Mutex::new(settings),
             session: Mutex::new(None),
             profiles: Mutex::new(Vec::new()),
             cancel: Arc::new(AtomicBool::new(false)),
+            twofa: Mutex::new(None),
+            twofa_cancel: Arc::new(AtomicBool::new(false)),
             index: Arc::new(Mutex::new(index)),
             game_kill: Mutex::new(None),
             presence: Mutex::new(Presence::default()),
             presence_kick: tokio::sync::Notify::new(),
         })
         .setup(|app| {
+            tauri::async_runtime::spawn(route::decide());
             start_prefetch(&app.state::<AppState>());
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(presence_loop(handle));
@@ -748,7 +822,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            app_init, settings_save, auth_login, auth_restore, auth_remember, auth_logout, accounts_list,
+            app_init, settings_save, auth_login, auth_2fa_wait, auth_2fa_cancel, auth_restore, auth_remember, auth_logout, accounts_list,
             profiles_list, server_ping, game_play, game_kill, game_running, sync_cancel,
             timing_mark, window_show, window_minimize, window_close, open_url,
             friends_get, friends_action, notes_action, presence_set,

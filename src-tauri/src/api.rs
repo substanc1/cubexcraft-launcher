@@ -50,16 +50,6 @@ impl From<ApiError> for String {
     }
 }
 
-pub fn client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .user_agent(concat!("CubeXCraft-Launcher/", env!("CARGO_PKG_VERSION")))
-        .connect_timeout(std::time::Duration::from_secs(10))
-        .timeout(std::time::Duration::from_secs(60))
-        .gzip(true)
-        .build()
-        .expect("http client")
-}
-
 async fn fail(r: reqwest::Response) -> ApiError {
     let status = r.status();
     let body: Value = r.json().await.unwrap_or(Value::Null);
@@ -78,18 +68,78 @@ fn net(e: reqwest::Error) -> ApiError {
     ApiError(format!("Нет соединения с сервером: {}", e.without_url()))
 }
 
-pub async fn login(http: &reqwest::Client, login: &str, password: &str, device: &str) -> Result<(String, User), ApiError> {
+/// запрос подтверждения входа в Telegram (у игрока привязан бот, сайт: telegram-2fa.js)
+#[derive(Deserialize, Clone, Debug)]
+pub struct TwoFa {
+    pub challenge: String,
+    #[serde(rename = "expiresIn", default)]
+    pub expires_in: u64,
+    #[serde(default)]
+    pub bot: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum LoginAny {
+    Done(LoginResp),
+    TwoFa { twofa: TwoFa },
+}
+
+pub enum LoginOutcome {
+    Done(String, User),
+    TwoFa(TwoFa),
+}
+
+/// twofa: "poll" - лаунчер сам ждёт подтверждения в Telegram (своё окно ожидания);
+/// "skip" - перенос паролей старого лаунчера: если включена 2FA, сразу отказ, без запроса в бот
+pub async fn login(http: &reqwest::Client, login: &str, password: &str, device: &str, twofa: &str) -> Result<LoginOutcome, ApiError> {
     let r = http
         .post(format!("{API}/auth/login"))
-        .json(&serde_json::json!({ "login": login, "password": password, "device": device }))
+        .json(&serde_json::json!({ "login": login, "password": password, "device": device, "twofa": twofa }))
         .send()
         .await
         .map_err(net)?;
     if !r.status().is_success() {
         return Err(fail(r).await);
     }
-    let v: LoginResp = r.json().await.map_err(net)?;
-    Ok((v.access_token, v.user))
+    match r.json::<LoginAny>().await.map_err(net)? {
+        LoginAny::Done(v) => Ok(LoginOutcome::Done(v.access_token, v.user)),
+        LoginAny::TwoFa { twofa } => Ok(LoginOutcome::TwoFa(twofa)),
+    }
+}
+
+pub enum TwoFaPoll {
+    Pending,
+    Done(String, User),
+}
+
+/// решение по запросу: сервер держит ответ до ~20 с, пока игрок не нажмёт кнопку в боте
+pub async fn twofa_poll(http: &reqwest::Client, challenge: &str) -> Result<TwoFaPoll, ApiError> {
+    let r = http
+        .post(format!("{API}/auth/2fa"))
+        .json(&serde_json::json!({ "challenge": challenge }))
+        .timeout(std::time::Duration::from_secs(40))
+        .send()
+        .await
+        .map_err(net)?;
+    if !r.status().is_success() {
+        return Err(fail(r).await);
+    }
+    let v: Value = r.json().await.map_err(net)?;
+    if v.get("accessToken").is_some() {
+        let d: LoginResp = serde_json::from_value(v).map_err(|e| ApiError(format!("Плохой ответ сервера: {e}")))?;
+        return Ok(TwoFaPoll::Done(d.access_token, d.user));
+    }
+    Ok(TwoFaPoll::Pending)
+}
+
+pub async fn twofa_cancel(http: &reqwest::Client, challenge: &str) {
+    let _ = http
+        .post(format!("{API}/auth/2fa/cancel"))
+        .json(&serde_json::json!({ "challenge": challenge }))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
 }
 
 pub async fn me(http: &reqwest::Client, token: &str) -> Result<User, ApiError> {

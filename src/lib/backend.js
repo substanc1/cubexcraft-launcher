@@ -38,13 +38,13 @@ const params = new URLSearchParams(typeof location !== 'undefined' ? location.se
 
 const mockProfiles = [
   {
-    uuid: 'b5bed500-0516-4b14-9f63-df7285b3bdf5', title: 'CubeXCraft', version: '1.21.1', dir: 'CubeXCraft',
-    info: 'CubeXCraft — приватный сервер на NeoForge 1.21.1. Проект находится в стадии активной разработки: дорабатываем моды, механики и лаунчер перед первым публичным запуском.',
+    uuid: 'b5bed500-0516-4b14-9f63-df7285b3bdf5', title: 'CubeXTech', version: '1.21.1', dir: 'CubeXCraft',
+    info: 'CubeXTech — приватный сервер на NeoForge 1.21.1. Проект находится в стадии активной разработки: дорабатываем моды, механики и лаунчер перед первым публичным запуском.',
     servers: [{ name: 'CubeXCraft', serverAddress: 'play.cubexcraft.site', serverPort: 25565 }], properties: {},
   },
   {
-    uuid: '2c1f0a5e-0000-4000-8000-000000000002', title: 'OneBlock', version: '1.21.1', dir: 'proj-oneblock',
-    info: 'Create: OneBlock', servers: [{ name: 'OneBlock', serverAddress: 'play.cubexcraft.site', serverPort: 25591 }], properties: {},
+    uuid: '2c1f0a5e-0000-4000-8000-000000000002', title: 'OneCube', version: '1.21.1', dir: 'proj-oneblock',
+    info: 'Create: OneCube', servers: [{ name: 'OneCube', serverAddress: 'play.cubexcraft.site', serverPort: 25591 }], properties: {},
   },
 ];
 
@@ -54,6 +54,8 @@ const mockSettings = {
   reduceEffects: params.has('noeffects'), customColors: {}, updatesDir: 'C:\\Users\\Player\\AppData\\Roaming\\CubeXCraft\\updates',
 };
 
+let mock2fa = null;
+
 const mock = {
   async app_init() {
     await sleep(150);
@@ -62,7 +64,22 @@ const mock = {
   async auth_login({ login, password }) {
     await sleep(600);
     if (password === 'bad') throw 'auth.wrongpassword';
+    // пароль «2fa» - вход с подтверждением в Telegram (через 5 с «Это я»; «deny» - отказ)
+    if (password === '2fa' || password === 'deny') {
+      mock2fa = { login, deny: password === 'deny', cancelled: false };
+      return { twofa: { challenge: 'mock', expiresIn: 180, bot: 'CubeXCraftBot' } };
+    }
     return { username: login || 'Player', uuid: '71a23136-c7ab-3271-bfe9-93dbe3c8f781', skin: null };
+  },
+  async auth_2fa_wait() {
+    const st = mock2fa;
+    for (let i = 0; i < 50 && !st.cancelled; i++) await sleep(100);
+    if (st.cancelled) throw '2fa.cancelled';
+    if (st.deny) throw 'Вход отклонён в Telegram';
+    return { username: st.login || 'Player', uuid: '71a23136-c7ab-3271-bfe9-93dbe3c8f781', skin: null };
+  },
+  async auth_2fa_cancel() {
+    if (mock2fa) mock2fa.cancelled = true;
   },
   async auth_restore() {
     await sleep(400);
@@ -111,16 +128,16 @@ const mock = {
 
 const mockFriends = {
   friends: [
-    { username: 'Minison434', uuid: '1', state: 'playing', server: 'CubeXCraft', playingSec: 4320 },
+    { username: 'Minison434', uuid: '1', state: 'playing', server: 'CubeXTech', playingSec: 4320 },
     { username: 'v_kirsanov', uuid: '2', state: 'online', server: null, playingSec: null },
     { username: 'nullbyte', uuid: '3', state: 'away', server: null, playingSec: null },
     { username: 'm0rf', uuid: '4', state: 'offline', server: null, playingSec: null },
   ],
   requests: [{ username: 'ironwolf', uuid: '5', mutual: 2 }, { username: 'kate_tech', uuid: '6', mutual: 0 }],
   notifications: [
-    { id: '3', kind: 'invite', actor: 'Minison434', server: 'CubeXCraft', unread: true, agoSec: 180 },
+    { id: '3', kind: 'invite', actor: 'Minison434', server: 'CubeXTech', unread: true, agoSec: 180 },
     { id: '2', kind: 'accepted', actor: 'nullbyte', server: '', unread: true, agoSec: 60000 },
-    { id: '1', kind: 'playing', actor: 'v_kirsanov', server: 'OneBlock', unread: false, agoSec: 90000 },
+    { id: '1', kind: 'playing', actor: 'v_kirsanov', server: 'OneCube', unread: false, agoSec: 90000 },
   ],
   snap() { return JSON.parse(JSON.stringify({ friends: this.friends, requests: this.requests, notifications: this.notifications })); },
   async act(action, username, server) {

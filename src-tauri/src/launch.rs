@@ -10,6 +10,8 @@ pub struct LaunchParams<'a> {
     pub client_dir: PathBuf,
     pub assets_dir: PathBuf,
     pub cxl_libs: PathBuf,
+    /// прямой путь к нашему серверу режут (route.rs): игра ходит на наши имена через ретранслятор РФ
+    pub relay: bool,
     pub ram_mb: u64,
     pub full_screen: bool,
     pub auto_enter: bool,
@@ -140,6 +142,13 @@ pub fn build_args(p: &LaunchParams) -> Vec<String> {
     );
     let natives = p.client_dir.join("natives").join(paths::natives_os()).join(paths::game_arch());
     args.push(format!("-Djava.library.path={}", natives.to_string_lossy()));
+    // через ретранслятор РФ: резолвер cxc-relay.jar (в -cp ниже) отдаёт наши имена на ретранслятор — «Играть» в меню,
+    // вход и скины идут через него без правок модов; остальные имена — как обычно
+    let relay_jar = p.cxl_libs.join("cxc-relay.jar");
+    let relay = p.relay && relay_jar.exists();
+    if relay {
+        args.push(crate::route::jvm_hosts_prop());
+    }
 
     let mc = prof.get("moduleConf").cloned().unwrap_or(Value::Null);
     let module_path = strs(&mc, "modulePath");
@@ -169,6 +178,9 @@ pub fn build_args(p: &LaunchParams) -> Vec<String> {
         .map(|c| resolve(&c, &p.cxl_libs))
         .collect();
     cp.extend(strs(prof, "altClassPath").into_iter().map(|c| resolve(&c, &p.cxl_libs)));
+    if relay {
+        cp.push(relay_jar.to_string_lossy().to_string());
+    }
     // Gravit клал classPath и altClassPath в разные места (HIDE_SYSTEM_ARGS_CLASSPATH), у нас всё в одном -cp:
     // jar из обоих списков (cxc-mcversion.jar) дал бы «Duplicate key» в securejarhandler BootstrapLauncher
     let mut seen = std::collections::HashSet::new();

@@ -1,7 +1,7 @@
 <script>
   import './login.css';
   // scenes/login/login.fxml + methods/loginpassword.fxml + LoginScene/AuthFlow/LoginAndPasswordAuthMethod/AuthButton
-  import { app, t, processRequest, switchScene, errorHandle, saveSettings, startDrag } from '../lib/app.svelte.js';
+  import { app, t, processRequest, confirmTwoFa, switchScene, errorHandle, saveSettings, startDrag } from '../lib/app.svelte.js';
   import { call } from '../lib/backend.js';
   import { onMount } from 'svelte';
   import IconButton from '../components/IconButton.svelte';
@@ -58,13 +58,19 @@
     validation = null;
     busy = true;
     try {
-      const user = await processRequest(
+      const res = await processRequest(
         t('overlay.processing.text.auth'),
         savedOnly ? call('auth_restore', { login }) : call('auth_login', { login, password }),
         { onError: () => {} },
       );
+      // включено подтверждение входа в Telegram - ждём «✅ Это я» в боте
+      const user = res && res.twofa ? await confirmTwoFa(res.twofa) : res;
       await onSuccessLogin(user, login, savedOnly);
     } catch (e) {
+      if (e === '2fa.cancelled') {
+        btn = 'active';
+        return;
+      }
       errorHandle(e);
       btn = 'error';
       if (savedOnly) hasSaved = false; // сохранённая сессия умерла - просим пароль

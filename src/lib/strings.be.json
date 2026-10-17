@@ -42,6 +42,7 @@
  "scenes.loginpassword.cancelTooltip": "Закрыць аўтарызацыйны аверлей",
  "overlay.processing.processing.description": "ЗАГРУЗКА...",
  "overlay.processing.text.auth": "Аўтарызацыя",
+ "overlay.processing.text.twofa": "Пацвердзіце ўваход у Telegram: націсніце «✅ Это я» у боце",
  "overlay.processing.text.authAvailability": "Абнаўленне даступных метадаў аўтарызацыі",
  "overlay.processing.text.launcher": "Праверка абнаўленняў ланчэра",
  "overlay.processing.text.setprofile": "Змена профілю",

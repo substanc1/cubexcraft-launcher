@@ -42,6 +42,7 @@
  "scenes.loginpassword.cancelTooltip": "Zamknij overlay autoryzacji",
  "overlay.processing.processing.description": "ŁADOWANIE...",
  "overlay.processing.text.auth": "Autoryzacja",
+ "overlay.processing.text.twofa": "Potwierdź logowanie w Telegramie: naciśnij «✅ Это я» w bocie",
  "overlay.processing.text.authAvailability": "Aktualizacja dostępnych metod autoryzacji",
  "overlay.processing.text.launcher": "Sprawdzanie aktualizacji launchera",
  "overlay.processing.text.setprofile": "Zmiana profilu",

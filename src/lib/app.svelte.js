@@ -14,7 +14,7 @@ export const app = $state({
   profiles: [],
   selected: null,
   javaVersion: '21',
-  processing: { visible: false, text: '', error: false },
+  processing: { visible: false, text: '', error: false, until: null, onCancel: null },
   notifications: [],
   dialog: null, // { kind: 'apply'|'info', header, text, onApply, onDeny }
   blurred: false,
@@ -49,14 +49,15 @@ export function errorHandle(e) {
 // на ошибке - показать ошибку в карточке и скрыть через 1.5 с.
 // Быстрый ответ (ядро запросило заранее, при старте) - без мигания: карточка появляется, только если ждать > 150 мс
 let processingUse = 0;
-export async function processRequest(text, promise, { onError } = {}) {
+// until/onCancel - ожидание подтверждения входа в Telegram: отсчёт и кнопка «ОТМЕНА» в карточке
+export async function processRequest(text, promise, { onError, until, onCancel } = {}) {
   processingUse++;
   const show = () => {
-    app.processing = { visible: true, text, error: false };
+    app.processing = { visible: true, text, error: false, until: until || null, onCancel: onCancel || null };
     app.blurred = true;
   };
   let timer = null;
-  if (app.processing.visible) show();
+  if (app.processing.visible || until) show();
   else timer = setTimeout(show, 150);
   try {
     const r = await promise;
@@ -65,11 +66,16 @@ export async function processRequest(text, promise, { onError } = {}) {
     return r;
   } catch (e) {
     clearTimeout(timer);
+    // игрок сам нажал «ОТМЕНА» - без карточки ошибки
+    if (e === '2fa.cancelled') {
+      if (--processingUse === 0) hideProcessing();
+      throw e;
+    }
     app.blurred = true;
     if (onError) onError(e);
     else errorHandle(e);
     const shown = typeof e === 'string' ? e : String(e && (e.message || e));
-    app.processing = { visible: true, text: shown, error: true };
+    app.processing = { visible: true, text: shown, error: true, until: null, onCancel: null };
     await new Promise(r => setTimeout(r, 1500));
     if (--processingUse === 0) hideProcessing();
     throw e;
@@ -78,6 +84,17 @@ export async function processRequest(text, promise, { onError } = {}) {
 function hideProcessing() {
   app.processing = { ...app.processing, visible: false };
   app.blurred = false;
+}
+
+// вход с подтверждением в Telegram (на сайте привязан бот): auth_login вернул { twofa } - ждём «✅ Это я».
+// Отмена - ошибка '2fa.cancelled' (вызывающий молча возвращается к форме), отказ/истечение - текст с сервера.
+export function confirmTwoFa(tf) {
+  const text = t('overlay.processing.text.twofa') + (tf.bot ? ` @${tf.bot}` : '');
+  return processRequest(text, call('auth_2fa_wait', { challenge: tf.challenge }), {
+    onError: () => {},
+    until: Date.now() + (tf.expiresIn || 180) * 1000,
+    onCancel: () => call('auth_2fa_cancel', { challenge: tf.challenge }).catch(() => {}),
+  });
 }
 
 export async function switchScene(name, addToFlow = true) {

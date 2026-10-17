@@ -44,7 +44,8 @@ pub async fn ping(host: &str, port: u16) -> Result<PingInfo, String> {
 }
 
 async fn ping_inner(host: &str, port: u16) -> std::io::Result<PingInfo> {
-    let mut s = TcpStream::connect((host, port)).await?;
+    // через ретранслятор РФ, если прямой путь режут (route.rs); в рукопожатии остаётся настоящее имя сервера
+    let mut s = TcpStream::connect((crate::route::tcp_host(host), port)).await?;
     let mut hs = Vec::new();
     varint(0, &mut hs); // packet id handshake
     varint(767, &mut hs); // протокол 1.21.1

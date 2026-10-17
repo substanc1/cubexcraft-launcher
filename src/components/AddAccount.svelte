@@ -1,7 +1,7 @@
 <script>
   // overlay/addaccount (AddAccountOverlay, CenterOverlay): по центру поверх размытой сцены. Перед входом текущий
   // аккаунт запоминается (QuickAccounts.rememberCurrent), новый становится текущим и первым в быстром списке.
-  import { app, t, processRequest, reloadScene } from '../lib/app.svelte.js';
+  import { app, t, processRequest, confirmTwoFa, reloadScene } from '../lib/app.svelte.js';
   import { call } from '../lib/backend.js';
   import IconButton from './IconButton.svelte';
   import { popIn, popOut } from '../lib/transitions.js';
@@ -32,7 +32,8 @@
     error = null;
     try {
       await call('auth_remember', { remember: true });
-      const user = await processRequest(t('overlay.processing.text.auth'), call('auth_login', { login, password }), { onError: () => {} });
+      const res = await processRequest(t('overlay.processing.text.auth'), call('auth_login', { login, password }), { onError: () => {} });
+      const user = res && res.twofa ? await confirmTwoFa(res.twofa) : res;
       app.quickAccounts = await call('auth_remember', { remember: true });
       app.user = user;
       app.settings.login = login;
@@ -41,7 +42,7 @@
       close();
       reloadScene();
     } catch (e) {
-      error = t('overlay.addaccount.authFailed');
+      error = e === '2fa.cancelled' ? null : t('overlay.addaccount.authFailed');
       app.blurred = true;
     }
   }
