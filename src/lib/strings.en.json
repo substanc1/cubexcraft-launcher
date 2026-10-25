@@ -270,5 +270,9 @@
  "friends.sideEmpty": "Add friends by nickname",
  "friends.inviteHead": "Invite",
  "friends.requestHead": "Friend request",
- "friends.requestText": "{a} wants to add you as a friend"
+ "friends.requestText": "{a} wants to add you as a friend",
+ "scenes.servermenu.vote": "VOTE FOR THE PROJECT",
+ "scenes.servermenu.voteReward": "+{n} CX per vote on each site",
+ "scenes.servermenu.newsEmpty": "No news yet",
+ "scenes.servermenu.newsError": "News did not load"
 }

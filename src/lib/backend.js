@@ -104,6 +104,19 @@ const mock = {
   async window_close() { window.close(); },
   async window_drag() {},
   async open_url({ url }) { window.open(url, '_blank'); },
+  // проверка вёрстки ленты в браузере: обложки — с сайта
+  async news_get() {
+    await sleep(300);
+    const c = n => 'https://www.cubexcraft.site/news/' + n + '.jpg';
+    return {
+      news: [
+        { id: 5, title: 'CubeXCraft теперь на телефоне', body: 'Играй в CubeXTech со смартфона — тем же аккаунтом и на тех же серверах, что и с ПК.\n\nAndroid — приложение CubeX Mobile (бета).', cover: c('mobile-launcher'), date: '2026-10-25T18:30:00Z' },
+        { id: 4, title: 'Скидки в честь открытия: −20 % до 8 ноября', body: 'В магазине −20 % на ранги, наборы, команды, косметику и загрузчики чанков.', cover: c('opening-sale'), date: '2026-10-25T18:29:00Z' },
+        { id: 2, title: 'Голосуй за проект — 12 CX за каждый голос', body: 'Голос на мониторинге поднимает CubeXCraft в топе.', cover: null, date: '2026-10-25T18:27:00Z' },
+      ],
+      vote: { url: 'https://www.cubexcraft.site/vote', reward: 12, sites: 3 },
+    };
+  },
   async avatar_get() { return null; },
   async game_play({ uuid }) {
     const total = 296 * 1048576;

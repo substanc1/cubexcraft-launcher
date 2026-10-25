@@ -197,3 +197,28 @@
   position: absolute; right: 24px; top: 23px; width: 180px; height: 44px;
   font-family: 'Unbounded SemiBold'; font-size: 15px; line-height: 18.6px;
 }
+
+/* новости сайта и кнопка «Голосовать» в правой колонке (windows-claude 25.10) */
+.sm-newsSection { align-items: stretch; gap: 10px; }
+.sm-vote {
+  display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--green); background: var(--greenTr); box-shadow: 0 0 10px rgba(0, 255, 159, 0.18);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+.sm-vote:hover { background: rgba(0, 255, 159, 0.2); }
+.sm-voteTitle { font-family: 'Unbounded SemiBold'; font-size: 11.5px; line-height: 15px; letter-spacing: .06em; color: var(--green); }
+.sm-voteReward { font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13px; color: var(--text-secondary); }
+.sm-news {
+  display: flex; flex-direction: column; width: 100%; text-align: left; cursor: pointer; overflow: hidden;
+  border: 1px solid var(--border-dark); background: var(--panel-flat);
+}
+.sm-news:hover { border-color: var(--red); }
+.sm-newsCover { display: block; width: 100%; aspect-ratio: 2.4; object-fit: cover; border-bottom: 1px solid var(--border-dark); }
+.sm-newsText { display: flex; flex-direction: column; gap: 5px; padding: 10px 11px 12px; }
+.sm-newsDate { font-family: 'JetBrains Mono'; font-size: 9.5px; line-height: 12.5px; letter-spacing: .1em; color: var(--text-secondary); }
+.sm-newsTitle { font-family: 'Manrope'; font-weight: 700; font-size: 12.5px; line-height: 16.5px; color: var(--text-hover); }
+.sm-newsBody {
+  font-family: 'Manrope'; font-size: 11.5px; line-height: 16px; color: var(--text-secondary); white-space: pre-line;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.sm-news.open .sm-newsBody { display: block; -webkit-line-clamp: unset; }

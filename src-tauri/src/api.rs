@@ -219,3 +219,39 @@ pub async fn social(http: &reqwest::Client, token: &str, path: &str, body: Optio
     }
     r.json().await.map_err(net)
 }
+
+/// Новости сайта для правой колонки (без входа, website/launcher-api.js /news) и данные кнопки «Голосовать».
+/// Обложки качаются здесь, тем же клиентом (через ретранслятор, если он включён), и уходят в интерфейс как data:-адреса:
+/// сам WebView ходил бы к сайту напрямую, а из РФ такие соединения режут после ~16 КБ. Обложка, которая не скачалась, — null.
+pub async fn news(http: &reqwest::Client) -> Result<Value, ApiError> {
+    use base64::Engine;
+    const MAX_COVER: usize = 2 << 20;
+    let r = http.get(format!("{API}/news")).timeout(std::time::Duration::from_secs(20)).send().await.map_err(net)?;
+    if !r.status().is_success() {
+        return Err(fail(r).await);
+    }
+    let mut v: Value = r.json().await.map_err(net)?;
+    if let Some(list) = v.get_mut("news").and_then(|n| n.as_array_mut()) {
+        for item in list.iter_mut() {
+            let Some(url) = item.get("cover").and_then(|c| c.as_str()).map(String::from) else { continue };
+            let data = async {
+                if !url.starts_with("https://www.cubexcraft.site/") {
+                    return None;
+                }
+                let r = http.get(&url).timeout(std::time::Duration::from_secs(20)).send().await.ok()?;
+                if !r.status().is_success() {
+                    return None;
+                }
+                let mime = r.headers().get(reqwest::header::CONTENT_TYPE).and_then(|h| h.to_str().ok()).unwrap_or("image/jpeg").to_string();
+                if !mime.starts_with("image/") {
+                    return None;
+                }
+                let bytes = r.bytes().await.ok()?;
+                (bytes.len() <= MAX_COVER).then(|| format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(&bytes)))
+            }
+            .await;
+            item["cover"] = data.map(Value::String).unwrap_or(Value::Null);
+        }
+    }
+    Ok(v)
+}

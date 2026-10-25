@@ -270,5 +270,9 @@
  "friends.sideEmpty": "Dodaj znajomych po nicku",
  "friends.inviteHead": "Zaproszenie",
  "friends.requestHead": "Zaproszenie do znajomych",
- "friends.requestText": "{a} chce dodać cię do znajomych"
+ "friends.requestText": "{a} chce dodać cię do znajomych",
+ "scenes.servermenu.vote": "GŁOSUJ NA PROJEKT",
+ "scenes.servermenu.voteReward": "+{n} CX za głos na każdej stronie",
+ "scenes.servermenu.newsEmpty": "Brak aktualności",
+ "scenes.servermenu.newsError": "Nie udało się wczytać aktualności"
 }

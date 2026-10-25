@@ -270,5 +270,9 @@
  "friends.sideEmpty": "Додайте друзів за ніком",
  "friends.inviteHead": "Запрошення",
  "friends.requestHead": "Запит у друзі",
- "friends.requestText": "{a} хоче додати вас у друзі"
+ "friends.requestText": "{a} хоче додати вас у друзі",
+ "scenes.servermenu.vote": "ГОЛОСУВАТИ ЗА ПРОЄКТ",
+ "scenes.servermenu.voteReward": "+{n} CX за голос на кожному майданчику",
+ "scenes.servermenu.newsEmpty": "Новин поки немає",
+ "scenes.servermenu.newsError": "Новини не завантажились"
 }

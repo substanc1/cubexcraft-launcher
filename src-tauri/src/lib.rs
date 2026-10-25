@@ -650,6 +650,13 @@ fn log_error(msg: String) {
     logs::save_launcher_error(&msg);
 }
 
+// ---------------------------------------------------------------- новости сайта и голосование (правая колонка)
+
+#[tauri::command]
+async fn news_get() -> R<Value> {
+    api::news(&route::http()).await.map_err(String::from)
+}
+
 // ---------------------------------------------------------------- друзья (launcher-friends.js на сайте)
 
 #[tauri::command]
@@ -825,7 +832,7 @@ pub fn run() {
             app_init, settings_save, auth_login, auth_2fa_wait, auth_2fa_cancel, auth_restore, auth_remember, auth_logout, accounts_list,
             profiles_list, server_ping, game_play, game_kill, game_running, sync_cancel,
             timing_mark, window_show, window_minimize, window_close, open_url,
-            friends_get, friends_action, notes_action, presence_set,
+            friends_get, friends_action, notes_action, presence_set, news_get,
             updates_dir_pick, updates_dir_change, open_path, logs_open, log_error, self_update_check, self_update_apply
         ])
         .run(tauri::generate_context!())

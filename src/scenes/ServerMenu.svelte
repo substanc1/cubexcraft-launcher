@@ -41,6 +41,15 @@
   let sideScroll;
   let friendsSection;
   let now = $state(Date.now());
+  // новости сайта и кнопка «Голосовать» (правая колонка): news_get в ядре, обложки уже data:-адресами
+  let news = $state([]);
+  let vote = $state(null);
+  let newsState = $state('loading');
+  let openNews = $state(null);
+  const newsDate = d => {
+    const x = new Date(d);
+    return isNaN(x) ? '' : x.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
   const friendsOnline = $derived(friends.friends.filter(f => f.state !== 'offline').length);
 
   const prop = (p, k) => (p && p.properties ? p.properties[k] : undefined);
@@ -78,6 +87,13 @@
   onMount(() => {
     // друзья: статус «в сети» и свежий список; длительность игры у друзей тикает
     friendsOnLogin();
+    call('news_get')
+      .then(v => {
+        news = (v && v.news) || [];
+        vote = v && v.vote && v.vote.url ? v.vote : v && v.voteUrl ? { url: v.voteUrl } : null;
+        newsState = 'ok';
+      })
+      .catch(() => (newsState = 'error'));
     const tick = setInterval(() => (now = Date.now()), 30000);
     // ServerMenuScene.reset: пинг каждого сервера, выбранный - lastProfile или первый
     if (!app.selected) app.selected = app.settings?.lastProfile || null;
@@ -256,9 +272,26 @@
     <!-- Правая колонка -->
     <div class="sm-side scroll" bind:this={sideScroll} use:fxscroll={{ right: 5, top: 13, bottom: 13, width: 10 }}>
       <div class="sm-sideColumn">
-        <div class="sm-sideSection">
+        <div class="sm-sideSection sm-newsSection">
+          {#if vote}
+            <button type="button" class="sm-vote" onclick={() => call('open_url', { url: vote.url })} data-no-drag>
+              <span class="sm-voteTitle">{t('scenes.servermenu.vote')}</span>
+              {#if vote.reward > 0}<span class="sm-voteReward">{t('scenes.servermenu.voteReward').replace('{n}', vote.reward)}</span>{/if}
+            </button>
+          {/if}
           <span class="sm-tag">{t('scenes.servermenu.feedTag')}</span>
-          <span class="sm-emptyState">{t('scenes.servermenu.comingSoon')}</span>
+          {#each news as n (n.id)}
+            <button type="button" class="sm-news" class:open={openNews === n.id} onclick={() => (openNews = openNews === n.id ? null : n.id)} data-no-drag>
+              {#if n.cover}<img class="sm-newsCover" src={n.cover} alt="" />{/if}
+              <span class="sm-newsText">
+                <span class="sm-newsDate">{newsDate(n.date)}</span>
+                <span class="sm-newsTitle">{n.title}</span>
+                <span class="sm-newsBody">{n.body}</span>
+              </span>
+            </button>
+          {:else}
+            <span class="sm-emptyState">{newsState === 'loading' ? '…' : newsState === 'error' ? t('scenes.servermenu.newsError') : t('scenes.servermenu.newsEmpty')}</span>
+          {/each}
         </div>
         <div class="sm-sideSection sm-friendsSection" bind:this={friendsSection}>
           <span class="sm-tag">{t('scenes.servermenu.friendsTag')}{friends.friends.length ? ' · ' + friendsOnline + '/' + friends.friends.length : ''}</span>

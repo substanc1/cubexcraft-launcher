@@ -168,3 +168,24 @@ pub fn jvm_hosts_prop() -> String {
     let list: Vec<String> = HOSTS.iter().map(|h| format!("{h}={RELAY_IP}")).collect();
     format!("-Dcubexcraft.relay.hosts={}", list.join(","))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn site_url_through_relay() {
+        RELAY.store(false, Ordering::Relaxed);
+        assert_eq!(site_url("https://cubexcraft.site/register"), "https://cubexcraft.site/register");
+        RELAY.store(true, Ordering::Relaxed);
+        assert_eq!(site_url("https://cubexcraft.site/register"), "https://ru.cubexcraft.site/register");
+        assert_eq!(site_url("https://www.cubexcraft.site/forgot-password"), "https://ru.cubexcraft.site/forgot-password");
+        assert_eq!(site_url("https://www.cubexcraft.site"), "https://ru.cubexcraft.site");
+        assert_eq!(site_url("https://www.cubexcraft.site?x=1"), "https://ru.cubexcraft.site?x=1");
+        assert_eq!(site_url("https://discord.gg/abc"), "https://discord.gg/abc");
+        assert_eq!(site_url("https://cubexcraft.site.evil.com/x"), "https://cubexcraft.site.evil.com/x");
+        assert_eq!(tcp_host("play.cubexcraft.site"), "89.125.214.40");
+        assert_eq!(tcp_host("example.org"), "example.org");
+        RELAY.store(false, Ordering::Relaxed);
+    }
+}

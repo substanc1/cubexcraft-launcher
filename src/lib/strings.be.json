@@ -270,5 +270,9 @@
  "friends.sideEmpty": "Дадайце сяброў па ніку",
  "friends.inviteHead": "Запрашэнне",
  "friends.requestHead": "Запыт у сябры",
- "friends.requestText": "{a} хоча дадаць вас у сябры"
+ "friends.requestText": "{a} хоча дадаць вас у сябры",
+ "scenes.servermenu.vote": "ГАЛАСАВАЦЬ ЗА ПРАЕКТ",
+ "scenes.servermenu.voteReward": "+{n} CX за голас на кожнай пляцоўцы",
+ "scenes.servermenu.newsEmpty": "Навін пакуль няма",
+ "scenes.servermenu.newsError": "Навіны не загрузіліся"
 }
