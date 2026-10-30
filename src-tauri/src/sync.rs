@@ -16,6 +16,11 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
+/// Секунд без единого байта, после которых поток считается оборванным (сам файл может качаться сколько угодно).
+const STALL: u64 = 30;
+/// Попыток на файл; каждая продолжает с места обрыва.
+const ATTEMPTS: u32 = 10;
+
 #[derive(Clone, Default)]
 pub struct Rules {
     pub update: Vec<String>,
@@ -216,7 +221,7 @@ impl Syncer {
             async move {
                 *current.lock().unwrap() = j.rel.clone();
                 let mut last_err = String::new();
-                for attempt in 0..3 {
+                for attempt in 0..ATTEMPTS {
                     if cancel.load(Ordering::Relaxed) {
                         return Err("cancelled".to_string());
                     }
@@ -234,7 +239,7 @@ impl Syncer {
                             let now = done.load(Ordering::Relaxed);
                             done.fetch_sub(now.saturating_sub(before), Ordering::Relaxed);
                             last_err = e;
-                            tokio::time::sleep(Duration::from_millis(500 * (attempt + 1))).await;
+                            tokio::time::sleep(Duration::from_millis(u64::from((500 * (attempt + 1)).min(5000)))).await;
                         }
                     }
                 }
@@ -276,21 +281,56 @@ async fn download(http: &reqwest::Client, j: &Job, done: &AtomicU64, cancel: &At
         tokio::fs::create_dir_all(p).await.map_err(|e| e.to_string())?;
     }
     let part = PathBuf::from(format!("{}.cxl-part", j.dest.to_string_lossy()));
-    let r = http.get(&j.url).send().await.map_err(|e| e.without_url().to_string())?;
+    // Докачка: часть, оставшаяся от оборванной попытки, продолжается с места обрыва (Range), а не с нуля —
+    // на медленной линии большой файл иначе не докачивается никогда.
+    let have = match tokio::fs::metadata(&part).await {
+        Ok(m) if m.len() > 0 && m.len() < j.size => m.len(),
+        _ => 0,
+    };
+    // Время на файл не ограничено (большой файл на медленной линии идёт минутами): обрывается только поток,
+    // по которому STALL секунд не пришло ни байта.
+    let mut req = http.get(&j.url).timeout(Duration::from_secs(24 * 3600));
+    if have > 0 {
+        req = req.header(reqwest::header::RANGE, format!("bytes={have}-")).header(reqwest::header::ACCEPT_ENCODING, "identity");
+    }
+    let r = req.send().await.map_err(|e| e.without_url().to_string())?;
     if !r.status().is_success() {
         return Err(format!("HTTP {}", r.status().as_u16()));
     }
-    let mut f = tokio::fs::File::create(&part).await.map_err(|e| e.to_string())?;
+    let resumed = have > 0 && r.status() == reqwest::StatusCode::PARTIAL_CONTENT;
     let mut h = Sha1::new();
     let mut got: u64 = 0;
+    let mut f = if resumed {
+        let old = tokio::fs::read(&part).await.map_err(|e| e.to_string())?;
+        h.update(&old);
+        got = old.len() as u64;
+        done.fetch_add(got, Ordering::Relaxed);
+        tokio::fs::OpenOptions::new().append(true).open(&part).await.map_err(|e| e.to_string())?
+    } else {
+        tokio::fs::File::create(&part).await.map_err(|e| e.to_string())?
+    };
     let mut stream = r.bytes_stream();
-    while let Some(chunk) = stream.next().await {
+    loop {
+        let chunk = match tokio::time::timeout(Duration::from_secs(STALL), stream.next()).await {
+            Ok(Some(c)) => c,
+            Ok(None) => break,
+            Err(_) => {
+                f.flush().await.ok();
+                return Err(format!("нет данных {STALL} с ({got}/{} байт), докачаю", j.size));
+            }
+        };
         if cancel.load(Ordering::Relaxed) {
             drop(f);
             let _ = tokio::fs::remove_file(&part).await;
             return Err("cancelled".into());
         }
-        let c = chunk.map_err(|e| e.without_url().to_string())?;
+        let c = match chunk {
+            Ok(c) => c,
+            Err(e) => {
+                f.flush().await.ok();
+                return Err(e.without_url().to_string());
+            }
+        };
         h.update(&c);
         f.write_all(&c).await.map_err(|e| e.to_string())?;
         got += c.len() as u64;
