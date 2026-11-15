@@ -16,7 +16,7 @@ export async function initGameEvents() {
   });
   await on('game-exit', p => {
     app.gameRunning = false;
-    log.exit = { code: p.code, killed: !!p.killed, saved: p.saved || null };
+    log.exit = { code: p.code, killed: !!p.killed, saved: p.saved || null, message: p.message || null };
     appendLog(`Process finished with exit code ${p.code}`);
     if (app.settings && app.settings.debugAllClients === false) return call('window_close');
     // игру закрыли (или остановили кнопкой) - сразу обратно в лаунчер; при вылете остаёмся в логе, чтобы была видна ошибка

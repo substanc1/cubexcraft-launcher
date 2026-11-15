@@ -370,10 +370,10 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
     let token = state.token()?;
     let profile = state.profiles.lock().unwrap().iter().find(|p| p["uuid"].as_str() == Some(uuid.as_str())).cloned().ok_or("Профиль не найден")?;
     state.cancel.store(false, Ordering::Relaxed);
-    route::ready().await; // маршрут (прямо или через ретранслятор РФ) выбран до скачивания
     if horizon::is_horizon(&profile) {
         return play_horizon(&app, &state, &token, &profile, options).await;
     }
+    route::ready().await; // маршрут (прямо или через ретранслятор РФ) выбран до скачивания
     let updates = store::updates_dir(&state.settings.lock().unwrap());
     let dir = profile["dir"].as_str().ok_or("dir")?.to_string();
     let asset_dir = profile["assetDir"].as_str().unwrap_or("assets").to_string();
@@ -435,7 +435,7 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
     });
     launch::sync_fullscreen_option(&client_dir, options.full_screen);
     let _ = app.emit("game-log", json!({ "line": format!("{} {}", java.display(), launch::redacted(&args)) }));
-    spawn_game(&app, &state, &java, &args, &client_dir, &[])?;
+    spawn_game(&app, &state, &java, &args, &client_dir, &[], false)?;
     // друзьям: «на сборке <название>» (до выхода из игры)
     let title = profile["title"].as_str().unwrap_or(&dir).to_string();
     state.presence.lock().unwrap().playing = Some(title);
@@ -446,7 +446,9 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
 /// профиль на движке Horizon (CubeXRust): без Java и библиотек - клиент под эту систему, данные игры и файл сессии
 async fn play_horizon(app: &tauri::AppHandle, state: &State<'_, AppState>, token: &str, profile: &Value, options: PlayOptions) -> R<()> {
     let updates = store::updates_dir(&state.settings.lock().unwrap());
+    // папка под эту машину - до любых запросов: нет пакета - ошибка сразу, кнопка «Играть» возвращается
     let dir = horizon::client_dir_name(profile)?;
+    route::ready().await; // маршрут выбран до скачивания (как у Java-профилей)
     let data_dir = profile["assetDir"].as_str().ok_or("assetDir")?.to_string();
     let emit = |stage: &'static str, p: sync::Progress| {
         let _ = app.emit("sync-progress", json!({ "stage": stage, "phase": p.phase, "done": p.done, "total": p.total,
@@ -483,7 +485,7 @@ async fn play_horizon(app: &tauri::AppHandle, state: &State<'_, AppState>, token
     let session = horizon::write_session(&gs)?;
     let args = horizon::args(profile, &updates.join(&data_dir), &session, options.auto_enter);
     let _ = app.emit("game-log", json!({ "line": format!("{} {}", exe.display(), args.join(" ")) }));
-    let spawned = spawn_game(app, state, &exe, &args, &client_dir, &horizon::env(profile, &client_dir));
+    let spawned = spawn_game(app, state, &exe, &args, &client_dir, &horizon::env(profile, &client_dir), true);
     // клиент читает файл сессии при старте; дальше токен только в памяти игры
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(60)).await;
@@ -496,7 +498,7 @@ async fn play_horizon(app: &tauri::AppHandle, state: &State<'_, AppState>, token
     Ok(())
 }
 
-fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::path::Path, args: &[String], cwd: &std::path::Path, env: &[(String, String)]) -> R<()> {
+fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::path::Path, args: &[String], cwd: &std::path::Path, env: &[(String, String)], horizon: bool) -> R<()> {
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut cmd = tokio::process::Command::new(java);
     cmd.args(args).current_dir(cwd).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped()).stdin(std::process::Stdio::null());
@@ -575,7 +577,17 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
             let _ = tokio::time::timeout(std::time::Duration::from_secs(3), r).await;
         }
         let saved = if !killed && code != 0 { logs::save_game_crash(code, &client_dir, started) } else { None };
-        let _ = app2.emit("game-exit", json!({ "code": code, "killed": killed, "saved": saved }));
+        // Horizon: вылет меньше чем через 20 с после старта - пояснение в журнал и в поле message (game-exit)
+        let early = horizon && !killed && code != 0 && started.elapsed().map(|d| d < std::time::Duration::from_secs(20)).unwrap_or(false);
+        let message = if early {
+            let journal = saved.clone().unwrap_or_else(|| log_path.to_string_lossy().to_string());
+            let text = format!("CubeXRust завершился с ошибкой (код {code}). Журнал: {journal}");
+            let _ = app2.emit("game-log", json!({ "line": format!("[CubeXCraft] {text}") }));
+            Some(text)
+        } else {
+            None
+        };
+        let _ = app2.emit("game-exit", json!({ "code": code, "killed": killed, "saved": saved, "message": message }));
     });
     Ok(())
 }
@@ -717,6 +729,15 @@ fn remove_non_user(root: &std::path::Path, dir: &std::path::Path, freed: &mut u6
     }
 }
 
+/// профиль для папки сборки: у horizon папка - из horizon.dirs под эту машину (ошибка, если пакета нет); у Java - dir как есть
+fn build_profile(profile: &Value) -> R<Value> {
+    let mut p = profile.clone();
+    if horizon::is_horizon(profile) {
+        p["dir"] = Value::String(horizon::client_dir_name(profile)?);
+    }
+    Ok(p)
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct BuildInfo {
@@ -729,7 +750,7 @@ struct BuildInfo {
 
 #[tauri::command]
 async fn build_info(state: State<'_, AppState>, uuid: String) -> R<BuildInfo> {
-    let profile = find_profile(&state, &uuid)?;
+    let profile = build_profile(&find_profile(&state, &uuid)?)?;
     let dir = profile["dir"].as_str().ok_or("dir")?.to_string();
     let path = build_dir(&store::updates_dir(&state.settings.lock().unwrap()), &profile)?;
     let p2 = path.clone();
@@ -754,7 +775,7 @@ async fn build_delete(state: State<'_, AppState>, uuid: String, keep_user: bool)
     if is_running(&state) {
         return Err("Сначала закройте игру".into());
     }
-    let profile = find_profile(&state, &uuid)?;
+    let profile = build_profile(&find_profile(&state, &uuid)?)?;
     let path = build_dir(&store::updates_dir(&state.settings.lock().unwrap()), &profile)?;
     let index = state.index.clone();
     let removed_bytes = tokio::task::spawn_blocking(move || -> R<u64> {
@@ -792,7 +813,8 @@ async fn build_verify(app: tauri::AppHandle, state: State<'_, AppState>, uuid: S
         return Err("Сначала закройте игру".into());
     }
     let token = state.token()?;
-    let profile = find_profile(&state, &uuid)?;
+    let profile = build_profile(&find_profile(&state, &uuid)?)?;
+    let is_hz = horizon::is_horizon(&profile); // у horizon библиотек Java нет: @cxl не сверяем
     let dir = profile["dir"].as_str().ok_or("dir")?.to_string();
     let asset_dir = profile["assetDir"].as_str().unwrap_or("assets").to_string();
     let updates = store::updates_dir(&state.settings.lock().unwrap());
@@ -805,7 +827,7 @@ async fn build_verify(app: tauri::AppHandle, state: State<'_, AppState>, uuid: S
     };
     let http = route::http();
     let (m_libs, m_assets, m_client) = tokio::join!(
-        api::manifest(&http, &token, "@cxl"),
+        async { if is_hz { None } else { Some(api::manifest(&http, &token, "@cxl").await) } },
         api::manifest(&http, &token, &asset_dir),
         api::manifest(&http, &token, &dir),
     );
@@ -814,7 +836,10 @@ async fn build_verify(app: tauri::AppHandle, state: State<'_, AppState>, uuid: S
     let libs_dir = paths::cxl_dir().join("libs");
     let res: R<sync::SyncStats> = async {
         let rules = sync::Rules { update_all: true, ..Default::default() };
-        let a = syncer.sync(&m_libs.map_err(String::from)?, &libs_dir, &rules, &|p| emit("libs", p)).await?;
+        let a = match m_libs {
+            Some(m) => syncer.sync(&m.map_err(String::from)?, &libs_dir, &rules, &|p| emit("libs", p)).await?,
+            None => sync::SyncStats::default(),
+        };
         let b = syncer.sync(&m_assets.map_err(String::from)?, &updates.join(&asset_dir), &rules, &|p| emit("assets", p)).await?;
         let rules = sync::Rules { force_hash: true, deep_clean: true, ..sync::rules_from_profile(&profile) };
         let c = syncer.sync(&m_client.map_err(String::from)?, &client_dir, &rules, &|p| emit("client", p)).await?;
