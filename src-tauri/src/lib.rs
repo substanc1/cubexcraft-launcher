@@ -529,12 +529,177 @@ fn game_kill(state: State<'_, AppState>) {
 
 #[tauri::command]
 fn game_running(state: State<'_, AppState>) -> bool {
-    state.game_kill.lock().unwrap().is_some()
+    is_running(&state)
 }
 
 #[tauri::command]
 fn sync_cancel(state: State<'_, AppState>) {
     state.cancel.store(true, Ordering::Relaxed);
+}
+
+// ---------------------------------------------------------------- папка сборки: сведения, удаление, проверка
+
+fn is_running(state: &AppState) -> bool {
+    state.game_kill.lock().unwrap().is_some()
+}
+
+fn find_profile(state: &AppState, uuid: &str) -> R<Value> {
+    state.profiles.lock().unwrap().iter().find(|p| p["uuid"].as_str() == Some(uuid)).cloned().ok_or_else(|| "Профиль не найден".to_string())
+}
+
+/// (файлы, байты) папки рекурсивно
+fn dir_usage(dir: &std::path::Path) -> (u64, u64) {
+    let (mut files, mut bytes) = (0u64, 0u64);
+    let Ok(rd) = std::fs::read_dir(dir) else { return (0, 0) };
+    for e in rd.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            let (f, b) = dir_usage(&p);
+            files += f;
+            bytes += b;
+        } else if let Ok(m) = e.metadata() {
+            files += 1;
+            bytes += m.len();
+        }
+    }
+    (files, bytes)
+}
+
+/// путь относительно корня сборки, с '/'; у папки - с завершающим '/' (чтобы is_user_path смотрел на саму папку)
+fn rel_in(root: &std::path::Path, p: &std::path::Path, is_dir: bool) -> String {
+    let rel = p.strip_prefix(root).map(|r| r.to_string_lossy().replace('\\', "/")).unwrap_or_default();
+    if is_dir { format!("{rel}/") } else { rel }
+}
+
+/// удалить из папки сборки всё, кроме пользовательских путей, и пустые не-пользовательские подпапки; вернуть байты
+fn remove_non_user(root: &std::path::Path, dir: &std::path::Path, freed: &mut u64) {
+    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    for e in rd.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            remove_non_user(root, &p, freed);
+            if !sync::is_user_path(&rel_in(root, &p, true)) {
+                let _ = std::fs::remove_dir(&p); // не удастся, если внутри остались пользовательские файлы
+            }
+        } else if !sync::is_user_path(&rel_in(root, &p, false)) {
+            let size = e.metadata().map(|m| m.len()).unwrap_or(0);
+            if std::fs::remove_file(&p).is_ok() {
+                *freed += size;
+            }
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BuildInfo {
+    dir: String,
+    path: String,
+    bytes: u64,
+    files: u64,
+    exists: bool,
+}
+
+#[tauri::command]
+async fn build_info(state: State<'_, AppState>, uuid: String) -> R<BuildInfo> {
+    let profile = find_profile(&state, &uuid)?;
+    let dir = profile["dir"].as_str().ok_or("dir")?.to_string();
+    let path = store::updates_dir(&state.settings.lock().unwrap()).join(&dir);
+    let p2 = path.clone();
+    let (exists, files, bytes) = tokio::task::spawn_blocking(move || {
+        let exists = p2.is_dir();
+        let (files, bytes) = if exists { dir_usage(&p2) } else { (0, 0) };
+        (exists, files, bytes)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(BuildInfo { dir, path: path.to_string_lossy().to_string(), bytes, files, exists })
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BuildDelete {
+    removed_bytes: u64,
+}
+
+#[tauri::command]
+async fn build_delete(state: State<'_, AppState>, uuid: String, keep_user: bool) -> R<BuildDelete> {
+    if is_running(&state) {
+        return Err("Сначала закройте игру".into());
+    }
+    let profile = find_profile(&state, &uuid)?;
+    let dir = profile["dir"].as_str().ok_or("dir")?.to_string();
+    let path = store::updates_dir(&state.settings.lock().unwrap()).join(&dir);
+    let index = state.index.clone();
+    let removed_bytes = tokio::task::spawn_blocking(move || -> R<u64> {
+        let freed = if keep_user {
+            let mut freed = 0u64;
+            remove_non_user(&path, &path, &mut freed);
+            freed
+        } else {
+            let (_, bytes) = dir_usage(&path);
+            if path.exists() {
+                std::fs::remove_dir_all(&path).map_err(|e| format!("Не удалось удалить папку: {e}"))?;
+            }
+            bytes
+        };
+        // записи кэша хэшей по удалённым файлам - из index; сохранённые файлы (миры и т.п.) остаются в кэше
+        let folder = path.to_string_lossy().to_string();
+        let mut idx = index.lock().unwrap();
+        idx.files.retain(|k, _| {
+            let inside = k.len() > folder.len() && k.starts_with(&folder) && matches!(k.as_bytes()[folder.len()], b'/' | b'\\');
+            !(inside && !std::path::Path::new(k).exists())
+        });
+        idx.save(&paths::cxl_dir().join("index.json"));
+        Ok(freed)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    Ok(BuildDelete { removed_bytes })
+}
+
+/// проверка сборки: библиотеки, assets и клиент сверяются с манифестами заново (sha1 каждого файла клиента),
+/// лишние файлы клиента удаляются (deep_clean). Без Java и запуска игры.
+#[tauri::command]
+async fn build_verify(app: tauri::AppHandle, state: State<'_, AppState>, uuid: String) -> R<sync::SyncStats> {
+    if is_running(&state) {
+        return Err("Сначала закройте игру".into());
+    }
+    let token = state.token()?;
+    let profile = find_profile(&state, &uuid)?;
+    let dir = profile["dir"].as_str().ok_or("dir")?.to_string();
+    let asset_dir = profile["assetDir"].as_str().unwrap_or("assets").to_string();
+    let updates = store::updates_dir(&state.settings.lock().unwrap());
+    state.cancel.store(false, Ordering::Relaxed);
+    route::ready().await;
+    let emit = |stage: &'static str, p: sync::Progress| {
+        let _ = app.emit("sync-progress", json!({ "stage": stage, "phase": p.phase, "done": p.done, "total": p.total,
+            "filesDone": p.files_done, "filesTotal": p.files_total, "file": p.file, "speed": p.speed }));
+    };
+    let http = route::http();
+    let (m_libs, m_assets, m_client) = tokio::join!(
+        api::manifest(&http, &token, "@cxl"),
+        api::manifest(&http, &token, &asset_dir),
+        api::manifest(&http, &token, &dir),
+    );
+    let syncer = sync::Syncer { http: route::http(), cancel: state.cancel.clone(), index: state.index.clone() };
+    let index_path = paths::cxl_dir().join("index.json");
+    let libs_dir = paths::cxl_dir().join("libs");
+    let res: R<sync::SyncStats> = async {
+        let rules = sync::Rules { update_all: true, ..Default::default() };
+        let a = syncer.sync(&m_libs.map_err(String::from)?, &libs_dir, &rules, &|p| emit("libs", p)).await?;
+        let b = syncer.sync(&m_assets.map_err(String::from)?, &updates.join(&asset_dir), &rules, &|p| emit("assets", p)).await?;
+        let rules = sync::Rules { force_hash: true, deep_clean: true, ..sync::rules_from_profile(&profile) };
+        let c = syncer.sync(&m_client.map_err(String::from)?, &updates.join(&dir), &rules, &|p| emit("client", p)).await?;
+        Ok(sync::SyncStats {
+            checked: a.checked + b.checked + c.checked,
+            downloaded: a.downloaded + b.downloaded + c.downloaded,
+            removed: a.removed + b.removed + c.removed,
+        })
+    }
+    .await;
+    state.index.lock().unwrap().save(&index_path);
+    res
 }
 
 // ---------------------------------------------------------------- окно и система
@@ -830,7 +995,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app_init, settings_save, auth_login, auth_2fa_wait, auth_2fa_cancel, auth_restore, auth_remember, auth_logout, accounts_list,
-            profiles_list, server_ping, game_play, game_kill, game_running, sync_cancel,
+            profiles_list, server_ping, game_play, game_kill, game_running, sync_cancel, build_info, build_delete, build_verify,
             timing_mark, window_show, window_minimize, window_close, open_url,
             friends_get, friends_action, notes_action, presence_set, news_get,
             updates_dir_pick, updates_dir_change, open_path, logs_open, log_error, self_update_check, self_update_apply
