@@ -288,6 +288,9 @@
   "scenes.servermenu.deleteBuild": "Выдаліць зборку",
   "scenes.servermenu.deleteTitle": "Выдаленне зборкі",
   "scenes.servermenu.deleteConfirm": "Выдаліць зборку {name}? Вызваліцца {size}. Светы, скрыншоты, налады і карты застануцца.",
+  "scenes.servermenu.sizeGB": "ГБ",
+  "scenes.servermenu.sizeMB": "МБ",
+  "scenes.servermenu.sizeKB": "КБ",
   "scenes.servermenu.deleting": "Выдаляю зборку…",
   "scenes.servermenu.deleted": "Зборка выдалена, вызвалена {size}."
 }

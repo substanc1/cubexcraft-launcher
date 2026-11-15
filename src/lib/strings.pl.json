@@ -288,6 +288,9 @@
   "scenes.servermenu.deleteBuild": "Usuń build",
   "scenes.servermenu.deleteTitle": "Usuwanie builda",
   "scenes.servermenu.deleteConfirm": "Usunąć build {name}? Zwolni się {size}. Światy, zrzuty ekranu, ustawienia i mapy zostaną.",
+  "scenes.servermenu.sizeGB": "GB",
+  "scenes.servermenu.sizeMB": "MB",
+  "scenes.servermenu.sizeKB": "KB",
   "scenes.servermenu.deleting": "Usuwam build…",
   "scenes.servermenu.deleted": "Build usunięty, zwolniono {size}."
 }

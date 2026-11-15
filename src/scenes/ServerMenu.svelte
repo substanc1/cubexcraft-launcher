@@ -4,6 +4,7 @@
   import { onMount, tick } from 'svelte';
   import { app, t, switchScene, processRequest, showApplyDialog, saveSettings, startDrag, errorHandle, notify } from '../lib/app.svelte.js';
   import { call } from '../lib/backend.js';
+  import { i18n, LOCALES } from '../lib/i18n.svelte.js';
   import { play, verifyBuild } from '../lib/play.js';
   import IconButton from '../components/IconButton.svelte';
   import CutButton from '../components/CutButton.svelte';
@@ -137,10 +138,13 @@
   let buildBusy = $state(false);
   const fmtSize = b => {
     const n = Number(b) || 0;
-    const fix = (v, u) => (v < 10 ? v.toFixed(1) : String(Math.round(v))).replace('.', ',') + ' ' + u;
-    if (n >= 1073741824) return fix(n / 1073741824, 'ГБ');
-    if (n >= 1048576) return fix(n / 1048576, 'МБ');
-    return fix(Math.max(1, n / 1024), 'КБ');
+    // десятичный разделитель - как в локали лаунчера (ru/uk/be/pl - запятая, en - точка)
+    const code = (LOCALES.find(l => l.id === i18n.locale) || LOCALES[0]).code;
+    const dec = (1.5).toLocaleString(code).charAt(1) || '.';
+    const fix = (v, key) => (v < 10 ? v.toFixed(1) : String(Math.round(v))).replace('.', dec) + ' ' + t(key);
+    if (n >= 1073741824) return fix(n / 1073741824, 'scenes.servermenu.sizeGB');
+    if (n >= 1048576) return fix(n / 1048576, 'scenes.servermenu.sizeMB');
+    return fix(Math.max(1, n / 1024), 'scenes.servermenu.sizeKB');
   };
   async function loadBuildInfo(uuid) {
     try {

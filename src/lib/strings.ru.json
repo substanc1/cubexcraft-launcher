@@ -292,6 +292,9 @@
   "scenes.servermenu.deleteBuild": "Удалить сборку",
   "scenes.servermenu.deleteTitle": "Удаление сборки",
   "scenes.servermenu.deleteConfirm": "Удалить сборку {name}? Освободится {size}. Миры, скриншоты, настройки и карты останутся.",
+  "scenes.servermenu.sizeGB": "ГБ",
+  "scenes.servermenu.sizeMB": "МБ",
+  "scenes.servermenu.sizeKB": "КБ",
   "scenes.servermenu.deleting": "Удаляю сборку…",
   "scenes.servermenu.deleted": "Сборка удалена, освобождено {size}."
 }

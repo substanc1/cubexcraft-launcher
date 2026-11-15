@@ -288,6 +288,9 @@
   "scenes.servermenu.deleteBuild": "Delete build",
   "scenes.servermenu.deleteTitle": "Deleting build",
   "scenes.servermenu.deleteConfirm": "Delete build {name}? {size} will be freed. Worlds, screenshots, settings and maps will stay.",
+  "scenes.servermenu.sizeGB": "GB",
+  "scenes.servermenu.sizeMB": "MB",
+  "scenes.servermenu.sizeKB": "KB",
   "scenes.servermenu.deleting": "Deleting build…",
   "scenes.servermenu.deleted": "Build deleted, {size} freed."
 }
