@@ -284,5 +284,17 @@
  "scenes.servermenu.newsOnSite": "На сайте",
  "scenes.servermenu.newsPinned": "ЗАКРЕПЛЕНО",
  "scenes.servermenu.newsNew": "НОВОЕ",
- "scenes.servermenu.newsSearch": "Поиск по новостям…"
+ "scenes.servermenu.newsSearch": "Поиск по новостям…",
+  "scenes.servermenu.verify": "Проверить целостность",
+  "scenes.servermenu.verifyTitle": "ПРОВЕРКА ЦЕЛОСТНОСТИ",
+  "scenes.servermenu.verifyDoneTitle": "Проверка завершена",
+  "scenes.servermenu.verifyDone": "Проверено файлов: {n}. Докачано: {m}. Убрано лишних: {k}.",
+  "scenes.servermenu.deleteBuild": "Удалить сборку",
+  "scenes.servermenu.deleteTitle": "Удаление сборки",
+  "scenes.servermenu.deleteConfirm": "Удалить сборку {name}? Освободится {size}. Миры, скриншоты, настройки и карты останутся.",
+  "scenes.servermenu.sizeGB": "ГБ",
+  "scenes.servermenu.sizeMB": "МБ",
+  "scenes.servermenu.sizeKB": "КБ",
+  "scenes.servermenu.deleting": "Удаляю сборку…",
+  "scenes.servermenu.deleted": "Сборка удалена, освобождено {size}."
 }

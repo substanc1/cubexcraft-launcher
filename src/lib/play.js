@@ -23,3 +23,22 @@ export async function play(profile) {
     await back(); // update снимается со стека, возвращаемся в меню серверов
   }
 }
+
+// Кнопка «Проверить целостность»: тот же экран прогресса, что у ИГРАТЬ, но без запуска игры.
+// build_verify сверяет библиотеки, assets и клиент (sha1), лишние файлы клиента удаляет; возвращает статистику.
+export async function verifyBuild(profile) {
+  app.playing = { profile, error: null, verify: true };
+  await switchScene('update');
+  try {
+    const st = await call('build_verify', { uuid: profile.uuid });
+    await back();
+    return st;
+  } catch (e) {
+    if (e !== 'cancelled') {
+      errorHandle(e);
+      app.playing = { profile, error: String(e), verify: true };
+    }
+    await back(); // update снимается со стека, возвращаемся в меню серверов
+    return null;
+  }
+}

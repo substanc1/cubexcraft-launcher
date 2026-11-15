@@ -20,7 +20,7 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # native-tls (SChannel на Windows): rustls/aws-lc не линкуется при сборке на Windows ARM64 (см. DEVLOG 11.09)
-reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls", "stream", "gzip"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls", "stream", "gzip", "http2"] }
 tokio = { version = "1", features = ["fs", "io-util", "process", "sync", "time", "macros", "rt-multi-thread", "net"] }
 futures-util = "0.3"
 sha1 = "0.10"

@@ -117,6 +117,22 @@ const mock = {
       vote: { url: 'https://www.cubexcraft.site/vote', reward: 12, sites: 3 },
     };
   },
+  // сборка на диске: сведения, удаление (миры остаются), проверка с прогрессом как у ИГРАТЬ
+  async build_info() {
+    await sleep(150);
+    return { dir: 'CubeXTech', path: 'C:/Users/Player/AppData/Roaming/CubeXCraft/cxl/updates/CubeXTech', bytes: 1288490188, files: 4210, exists: true };
+  },
+  async build_delete() {
+    await sleep(600);
+    return { removedBytes: 1180000000 };
+  },
+  async build_verify() {
+    for (let i = 0; i <= 20; i++) {
+      await sleep(120);
+      emit('sync-progress', { stage: 'client', phase: 'check', done: i, total: 20, file: 'mods/example.jar', speed: 0 });
+    }
+    return { checked: 4210, downloaded: 3, removed: 12 };
+  },
   async avatar_get() { return null; },
   async game_play({ uuid }) {
     const total = 296 * 1048576;
