@@ -3,6 +3,7 @@ mod api;
 mod cleanup;
 mod crypto;
 mod gamewindow;
+mod horizon;
 mod java;
 mod launch;
 mod logs;
@@ -370,6 +371,9 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
     let profile = state.profiles.lock().unwrap().iter().find(|p| p["uuid"].as_str() == Some(uuid.as_str())).cloned().ok_or("Профиль не найден")?;
     state.cancel.store(false, Ordering::Relaxed);
     route::ready().await; // маршрут (прямо или через ретранслятор РФ) выбран до скачивания
+    if horizon::is_horizon(&profile) {
+        return play_horizon(&app, &state, &token, &profile, options).await;
+    }
     let updates = store::updates_dir(&state.settings.lock().unwrap());
     let dir = profile["dir"].as_str().ok_or("dir")?.to_string();
     let asset_dir = profile["assetDir"].as_str().unwrap_or("assets").to_string();
@@ -431,7 +435,7 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
     });
     launch::sync_fullscreen_option(&client_dir, options.full_screen);
     let _ = app.emit("game-log", json!({ "line": format!("{} {}", java.display(), launch::redacted(&args)) }));
-    spawn_game(&app, &state, &java, &args, &client_dir)?;
+    spawn_game(&app, &state, &java, &args, &client_dir, &[])?;
     // друзьям: «на сборке <название>» (до выхода из игры)
     let title = profile["title"].as_str().unwrap_or(&dir).to_string();
     state.presence.lock().unwrap().playing = Some(title);
@@ -439,13 +443,70 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
     Ok(())
 }
 
-fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::path::Path, args: &[String], cwd: &std::path::Path) -> R<()> {
+/// профиль на движке Horizon (CubeXRust): без Java и библиотек - клиент под эту систему, данные игры и файл сессии
+async fn play_horizon(app: &tauri::AppHandle, state: &State<'_, AppState>, token: &str, profile: &Value, options: PlayOptions) -> R<()> {
+    let updates = store::updates_dir(&state.settings.lock().unwrap());
+    let dir = horizon::client_dir_name(profile)?;
+    let data_dir = profile["assetDir"].as_str().ok_or("assetDir")?.to_string();
+    let emit = |stage: &'static str, p: sync::Progress| {
+        let _ = app.emit("sync-progress", json!({ "stage": stage, "phase": p.phase, "done": p.done, "total": p.total,
+            "filesDone": p.files_done, "filesTotal": p.files_total, "file": p.file, "speed": p.speed }));
+    };
+    timing::mark(&format!("ИГРАТЬ (Horizon): {dir}"));
+    let http = route::http();
+    let (m_data, m_client, gs) = tokio::join!(
+        api::manifest(&http, token, &data_dir),
+        api::manifest(&http, token, &dir),
+        api::game_session(&http, token),
+    );
+    let syncer = sync::Syncer { http: route::http(), cancel: state.cancel.clone(), index: state.index.clone() };
+    let index_path = paths::cxl_dir().join("index.json");
+    let res: R<()> = async {
+        let rules = sync::Rules { update_all: true, ..Default::default() };
+        syncer.sync(&m_data.map_err(String::from)?, &updates.join(&data_dir), &rules, &|p| emit("assets", p)).await?;
+        let rules = sync::rules_from_profile(profile);
+        syncer.sync(&m_client.map_err(String::from)?, &updates.join(&dir), &rules, &|p| emit("client", p)).await?;
+        Ok(())
+    }
+    .await;
+    state.index.lock().unwrap().save(&index_path);
+    res?;
+    timing::mark("файлы проверены");
+
+    let gs = gs.map_err(String::from)?;
+    let client_dir = updates.join(&dir);
+    let exe = horizon::exe(&client_dir);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755));
+    }
+    let session = horizon::write_session(&gs)?;
+    let args = horizon::args(profile, &updates.join(&data_dir), &session, options.auto_enter);
+    let _ = app.emit("game-log", json!({ "line": format!("{} {}", exe.display(), args.join(" ")) }));
+    let spawned = spawn_game(app, state, &exe, &args, &client_dir, &horizon::env(profile, &client_dir));
+    // клиент читает файл сессии при старте; дальше токен только в памяти игры
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        let _ = std::fs::remove_file(session);
+    });
+    spawned?;
+    let title = profile["title"].as_str().unwrap_or(&dir).to_string();
+    state.presence.lock().unwrap().playing = Some(title);
+    state.presence_kick.notify_one();
+    Ok(())
+}
+
+fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::path::Path, args: &[String], cwd: &std::path::Path, env: &[(String, String)]) -> R<()> {
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut cmd = tokio::process::Command::new(java);
     cmd.args(args).current_dir(cwd).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped()).stdin(std::process::Stdio::null());
-    if let Some(home) = java.parent().and_then(|b| b.parent()) {
-        cmd.env("JAVA_HOME", home);
+    if env.is_empty() {
+        if let Some(home) = java.parent().and_then(|b| b.parent()) {
+            cmd.env("JAVA_HOME", home);
+        }
     }
+    cmd.envs(env.iter().map(|(k, v)| (k.as_str(), v.as_str())));
     #[cfg(windows)]
     cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     #[cfg(target_os = "linux")]
