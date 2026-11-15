@@ -76,7 +76,7 @@
   <div class="up-header">
     <div class="up-title">
       <img src={logo} alt="" />
-      <span>{t('scenes.update.headingDialog')}</span>
+      <span>{app.playing?.verify ? t('scenes.servermenu.verifyTitle') : t('scenes.update.headingDialog')}</span>
     </div>
     <div class="up-controls">
       <IconButton glyph="✕" kind="cancel" tip={t('scenes.update.cancelTooltip')} onclick={cancel} />

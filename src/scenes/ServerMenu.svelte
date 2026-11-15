@@ -2,9 +2,9 @@
   // scenes/servermenu/servermenu.fxml + ServerMenuScene + components/userBlock.fxml/UserBlock
   import './servermenu.css';
   import { onMount, tick } from 'svelte';
-  import { app, t, switchScene, processRequest, showApplyDialog, saveSettings, startDrag, errorHandle } from '../lib/app.svelte.js';
+  import { app, t, switchScene, processRequest, showApplyDialog, saveSettings, startDrag, errorHandle, notify } from '../lib/app.svelte.js';
   import { call } from '../lib/backend.js';
-  import { play } from '../lib/play.js';
+  import { play, verifyBuild } from '../lib/play.js';
   import IconButton from '../components/IconButton.svelte';
   import CutButton from '../components/CutButton.svelte';
   import Avatar from '../components/Avatar.svelte';
@@ -130,6 +130,78 @@
     app.settings.lastProfile = p.uuid;
     modsExpanded = false;
     saveSettings();
+  }
+
+  // сборка выбранного сервера на диске (build_info): размер и наличие папки
+  let buildInfo = $state(null);
+  let buildBusy = $state(false);
+  const fmtSize = b => {
+    const n = Number(b) || 0;
+    const fix = (v, u) => (v < 10 ? v.toFixed(1) : String(Math.round(v))).replace('.', ',') + ' ' + u;
+    if (n >= 1073741824) return fix(n / 1073741824, 'ГБ');
+    if (n >= 1048576) return fix(n / 1048576, 'МБ');
+    return fix(Math.max(1, n / 1024), 'КБ');
+  };
+  async function loadBuildInfo(uuid) {
+    try {
+      const info = await call('build_info', { uuid });
+      if (selected?.uuid === uuid) buildInfo = info;
+    } catch {
+      // без сведений о сборке кнопка просто остаётся активной
+    }
+  }
+  $effect(() => {
+    const uuid = selected?.uuid;
+    buildInfo = null;
+    if (uuid) loadBuildInfo(uuid);
+  });
+
+  async function doVerify() {
+    if (!selected || buildBusy) return;
+    const uuid = selected.uuid;
+    buildBusy = true;
+    try {
+      const st = await verifyBuild(selected);
+      if (st)
+        showApplyDialog(
+          t('scenes.servermenu.verifyDoneTitle'),
+          t('scenes.servermenu.verifyDone').replace('{n}', st.checked).replace('{m}', st.downloaded).replace('{k}', st.removed),
+          () => {},
+        );
+      loadBuildInfo(uuid);
+    } finally {
+      buildBusy = false;
+    }
+  }
+
+  async function doDelete() {
+    if (!selected || buildBusy) return;
+    const uuid = selected.uuid;
+    const sel = selected;
+    let info;
+    try {
+      info = await call('build_info', { uuid });
+    } catch (e) {
+      errorHandle(e);
+      return;
+    }
+    showApplyDialog(
+      t('scenes.servermenu.deleteTitle'),
+      t('scenes.servermenu.deleteConfirm').replace('{name}', name(sel)).replace('{size}', fmtSize(info.bytes)),
+      async () => {
+        buildBusy = true;
+        try {
+          // keepUser: миры, скриншоты, настройки и карты остаются
+          const r = await processRequest(t('scenes.servermenu.deleting'), call('build_delete', { uuid, keepUser: true }));
+          notify(t('scenes.servermenu.deleteBuild'), t('scenes.servermenu.deleted').replace('{size}', fmtSize(r.removedBytes)));
+          loadBuildInfo(uuid);
+        } catch {
+          // processRequest уже показал ошибку (errorHandle + карточка)
+        } finally {
+          buildBusy = false;
+        }
+      },
+    );
   }
 
   onMount(() => {
@@ -289,6 +361,10 @@
               <div class="sm-loadTrack">
                 <div class="sm-loadFill" style="width:{selPing && selPing.max > 0 ? 200 * Math.min(1, selPing.online / selPing.max) : 0}px"></div>
               </div>
+            </div>
+            <div class="sm-buildRow">
+              <button type="button" class="sm-filterChip sm-buildBtn" disabled={buildBusy} onclick={doVerify} data-no-drag>{t('scenes.servermenu.verify')}</button>
+              <button type="button" class="sm-filterChip sm-buildBtn" disabled={buildBusy || (buildInfo && !buildInfo.exists)} onclick={doDelete} data-no-drag>{t('scenes.servermenu.deleteBuild')}</button>
             </div>
           </div>
         {/if}

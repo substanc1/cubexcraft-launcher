@@ -241,3 +241,6 @@
   font-family: 'JetBrains Mono Bold'; font-size: 9px; line-height: 11.88px; color: var(--green);
   background: var(--greenTr); border: 1px solid var(--green); padding: 2px 6px;
 }
+
+.sm-buildRow { display: flex; gap: 8px; margin-top: 4px; }
+.sm-buildBtn:disabled { opacity: .45; cursor: default; }

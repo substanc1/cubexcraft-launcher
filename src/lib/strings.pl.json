@@ -280,5 +280,14 @@
  "scenes.servermenu.newsOnSite": "Na stronie",
  "scenes.servermenu.newsPinned": "PRZYPIĘTE",
  "scenes.servermenu.newsNew": "NOWE",
- "scenes.servermenu.newsSearch": "Szukaj w aktualnościach…"
+ "scenes.servermenu.newsSearch": "Szukaj w aktualnościach…",
+  "scenes.servermenu.verify": "Sprawdź integralność",
+  "scenes.servermenu.verifyTitle": "SPRAWDZANIE INTEGRALNOŚCI",
+  "scenes.servermenu.verifyDoneTitle": "Sprawdzanie zakończone",
+  "scenes.servermenu.verifyDone": "Sprawdzono plików: {n}. Pobrano ponownie: {m}. Usunięto zbędnych: {k}.",
+  "scenes.servermenu.deleteBuild": "Usuń build",
+  "scenes.servermenu.deleteTitle": "Usuwanie builda",
+  "scenes.servermenu.deleteConfirm": "Usunąć build {name}? Zwolni się {size}. Światy, zrzuty ekranu, ustawienia i mapy zostaną.",
+  "scenes.servermenu.deleting": "Usuwam build…",
+  "scenes.servermenu.deleted": "Build usunięty, zwolniono {size}."
 }

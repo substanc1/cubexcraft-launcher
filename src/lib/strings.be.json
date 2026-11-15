@@ -280,5 +280,14 @@
  "scenes.servermenu.newsOnSite": "На сайце",
  "scenes.servermenu.newsPinned": "ЗАМАЦАВАНА",
  "scenes.servermenu.newsNew": "НОВАЕ",
- "scenes.servermenu.newsSearch": "Пошук па навінах…"
+ "scenes.servermenu.newsSearch": "Пошук па навінах…",
+  "scenes.servermenu.verify": "Праверыць цэласнасць",
+  "scenes.servermenu.verifyTitle": "ПРАВЕРКА ЦЭЛАСНАСЦІ",
+  "scenes.servermenu.verifyDoneTitle": "Праверка завершана",
+  "scenes.servermenu.verifyDone": "Правераны файлаў: {n}. Дакачана: {m}. Прыбрана лішніх: {k}.",
+  "scenes.servermenu.deleteBuild": "Выдаліць зборку",
+  "scenes.servermenu.deleteTitle": "Выдаленне зборкі",
+  "scenes.servermenu.deleteConfirm": "Выдаліць зборку {name}? Вызваліцца {size}. Светы, скрыншоты, налады і карты застануцца.",
+  "scenes.servermenu.deleting": "Выдаляю зборку…",
+  "scenes.servermenu.deleted": "Зборка выдалена, вызвалена {size}."
 }
