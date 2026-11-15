@@ -476,11 +476,10 @@ async fn play_horizon(app: &tauri::AppHandle, state: &State<'_, AppState>, token
     let gs = gs.map_err(String::from)?;
     let client_dir = updates.join(&dir);
     let exe = horizon::exe(&client_dir);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755));
+    if !exe.is_file() {
+        return Err(format!("Клиент не найден: {} (пакет {dir} не скачан или повреждён)", exe.display()));
     }
+    horizon::prepare_exe(&exe);
     let session = horizon::write_session(&gs)?;
     let args = horizon::args(profile, &updates.join(&data_dir), &session, options.auto_enter);
     let _ = app.emit("game-log", json!({ "line": format!("{} {}", exe.display(), args.join(" ")) }));

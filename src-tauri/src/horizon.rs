@@ -16,7 +16,7 @@ pub fn client_dir_name(profile: &Value) -> Result<String, String> {
     if let Some(dirs) = profile["horizon"]["dirs"].as_object() {
         return dirs.get(&platform).and_then(|v| v.as_str()).map(str::to_string).ok_or_else(|| {
             let title = profile["title"].as_str().unwrap_or("Эта сборка");
-            format!("{title} пока не работает на этой системе ({platform})")
+            format!("{title} пока недоступна на этой системе ({platform}): в профиле нет horizon.dirs[\"{platform}\"] (пакет для вашей ОС не опубликован)")
         });
     }
     profile["dir"].as_str().map(str::to_string).ok_or_else(|| "dir".to_string())
@@ -24,6 +24,39 @@ pub fn client_dir_name(profile: &Value) -> Result<String, String> {
 
 pub fn exe(client_dir: &Path) -> PathBuf {
     client_dir.join(if cfg!(windows) { "horizon-client.exe" } else { "horizon-client" })
+}
+
+/// подготовка exe к запуску: права 0o755 (unix); на macOS снимаем quarantine только с exe. Ошибки игнорируем.
+pub fn prepare_exe(exe: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(exe, std::fs::Permissions::from_mode(0o755));
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("xattr").args(["-dr", "com.apple.quarantine"]).arg(exe).output();
+    }
+    #[cfg(not(unix))]
+    let _ = exe;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn client_dir_name_error_mentions_dirs() {
+        let profile = json!({"title": "X", "horizon": {"dirs": {"windows-x64": "A"}}});
+        let r = client_dir_name(&profile);
+        if crate::java::platform() == "windows-x64" {
+            assert_eq!(r.unwrap(), "A");
+        } else {
+            let e = r.unwrap_err();
+            assert!(e.contains("horizon.dirs"), "{e}");
+        }
+    }
 }
 
 /// файл сессии для --session-file: клиент принимает только свежий (до 2 минут) и, на macOS/Linux, только
