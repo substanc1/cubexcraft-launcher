@@ -547,12 +547,69 @@ fn find_profile(state: &AppState, uuid: &str) -> R<Value> {
     state.profiles.lock().unwrap().iter().find(|p| p["uuid"].as_str() == Some(uuid)).cloned().ok_or_else(|| "Профиль не найден".to_string())
 }
 
-/// (файлы, байты) папки рекурсивно
+/// symlink или junction (reparse point): по такой ссылке не заходим и её содержимое не трогаем
+fn is_link(path: &std::path::Path) -> bool {
+    let Ok(m) = std::fs::symlink_metadata(path) else { return false };
+    m.file_type().is_symlink() || is_reparse(&m)
+}
+
+#[cfg(windows)]
+fn is_reparse(m: &std::fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    m.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+}
+
+#[cfg(not(windows))]
+fn is_reparse(_m: &std::fs::Metadata) -> bool {
+    false
+}
+
+/// папка сборки внутри updates. dir из профиля должен быть ровно одним компонентом пути и не служебной папкой.
+/// Если папка уже есть, её настоящий путь (после canonicalize) обязан лежать внутри updates.
+fn build_dir(updates: &std::path::Path, profile: &Value) -> R<std::path::PathBuf> {
+    use std::path::{Component, Path};
+    const BAD: &str = "Недопустимая папка сборки";
+    let dir = profile["dir"].as_str().map(str::trim).filter(|s| !s.is_empty()).ok_or(BAD)?;
+    if dir == "." || dir == ".." || dir.contains(['/', '\\', ':', '\0']) {
+        return Err(BAD.into());
+    }
+    let mut comps = Path::new(dir).components();
+    match (comps.next(), comps.next()) {
+        (Some(Component::Normal(_)), None) => {}
+        _ => return Err(BAD.into()),
+    }
+    if ["assets", "java", "libs"].iter().any(|r| r.eq_ignore_ascii_case(dir)) {
+        return Err(BAD.into());
+    }
+    if let Some(a) = profile["assetDir"].as_str().map(str::trim).filter(|s| !s.is_empty()) {
+        if a.eq_ignore_ascii_case(dir) {
+            return Err(BAD.into());
+        }
+    }
+    let path = updates.join(dir);
+    if path.exists() {
+        let root = updates.canonicalize().map_err(|_| BAD.to_string())?;
+        let real = path.canonicalize().map_err(|_| BAD.to_string())?;
+        if real == root || !real.starts_with(&root) {
+            return Err(BAD.into());
+        }
+    }
+    Ok(path)
+}
+
+/// (файлы, байты) папки рекурсивно; symlink/junction не раскрываются и не считаются
 fn dir_usage(dir: &std::path::Path) -> (u64, u64) {
+    if is_link(dir) {
+        return (0, 0);
+    }
     let (mut files, mut bytes) = (0u64, 0u64);
     let Ok(rd) = std::fs::read_dir(dir) else { return (0, 0) };
     for e in rd.flatten() {
         let p = e.path();
+        if is_link(&p) {
+            continue;
+        }
         if p.is_dir() {
             let (f, b) = dir_usage(&p);
             files += f;
@@ -573,10 +630,20 @@ fn rel_in(root: &std::path::Path, p: &std::path::Path, is_dir: bool) -> String {
 
 /// удалить из папки сборки всё, кроме пользовательских путей, и пустые не-пользовательские подпапки; вернуть байты
 fn remove_non_user(root: &std::path::Path, dir: &std::path::Path, freed: &mut u64) {
+    if is_link(dir) {
+        return; // корень-ссылка: содержимое чужое, не трогаем
+    }
     let Ok(rd) = std::fs::read_dir(dir) else { return };
     for e in rd.flatten() {
         let p = e.path();
-        if p.is_dir() {
+        if is_link(&p) {
+            // саму ссылку удаляем (не её цель), если она не пользовательский путь
+            if !sync::is_user_path(&rel_in(root, &p, p.is_dir())) {
+                if std::fs::remove_file(&p).is_err() {
+                    let _ = std::fs::remove_dir(&p); // dir-symlink/junction на Windows
+                }
+            }
+        } else if p.is_dir() {
             remove_non_user(root, &p, freed);
             if !sync::is_user_path(&rel_in(root, &p, true)) {
                 let _ = std::fs::remove_dir(&p); // не удастся, если внутри остались пользовательские файлы
@@ -604,10 +671,10 @@ struct BuildInfo {
 async fn build_info(state: State<'_, AppState>, uuid: String) -> R<BuildInfo> {
     let profile = find_profile(&state, &uuid)?;
     let dir = profile["dir"].as_str().ok_or("dir")?.to_string();
-    let path = store::updates_dir(&state.settings.lock().unwrap()).join(&dir);
+    let path = build_dir(&store::updates_dir(&state.settings.lock().unwrap()), &profile)?;
     let p2 = path.clone();
     let (exists, files, bytes) = tokio::task::spawn_blocking(move || {
-        let exists = p2.is_dir();
+        let exists = p2.is_dir() && !is_link(&p2);
         let (files, bytes) = if exists { dir_usage(&p2) } else { (0, 0) };
         (exists, files, bytes)
     })
@@ -628,8 +695,7 @@ async fn build_delete(state: State<'_, AppState>, uuid: String, keep_user: bool)
         return Err("Сначала закройте игру".into());
     }
     let profile = find_profile(&state, &uuid)?;
-    let dir = profile["dir"].as_str().ok_or("dir")?.to_string();
-    let path = store::updates_dir(&state.settings.lock().unwrap()).join(&dir);
+    let path = build_dir(&store::updates_dir(&state.settings.lock().unwrap()), &profile)?;
     let index = state.index.clone();
     let removed_bytes = tokio::task::spawn_blocking(move || -> R<u64> {
         let freed = if keep_user {
@@ -670,6 +736,7 @@ async fn build_verify(app: tauri::AppHandle, state: State<'_, AppState>, uuid: S
     let dir = profile["dir"].as_str().ok_or("dir")?.to_string();
     let asset_dir = profile["assetDir"].as_str().unwrap_or("assets").to_string();
     let updates = store::updates_dir(&state.settings.lock().unwrap());
+    let client_dir = build_dir(&updates, &profile)?;
     state.cancel.store(false, Ordering::Relaxed);
     route::ready().await;
     let emit = |stage: &'static str, p: sync::Progress| {
@@ -690,7 +757,7 @@ async fn build_verify(app: tauri::AppHandle, state: State<'_, AppState>, uuid: S
         let a = syncer.sync(&m_libs.map_err(String::from)?, &libs_dir, &rules, &|p| emit("libs", p)).await?;
         let b = syncer.sync(&m_assets.map_err(String::from)?, &updates.join(&asset_dir), &rules, &|p| emit("assets", p)).await?;
         let rules = sync::Rules { force_hash: true, deep_clean: true, ..sync::rules_from_profile(&profile) };
-        let c = syncer.sync(&m_client.map_err(String::from)?, &updates.join(&dir), &rules, &|p| emit("client", p)).await?;
+        let c = syncer.sync(&m_client.map_err(String::from)?, &client_dir, &rules, &|p| emit("client", p)).await?;
         Ok(sync::SyncStats {
             checked: a.checked + b.checked + c.checked,
             downloaded: a.downloaded + b.downloaded + c.downloaded,
@@ -1002,4 +1069,39 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running CubeXCraft launcher");
+}
+
+#[cfg(test)]
+mod build_dir_tests {
+    use super::build_dir;
+    use serde_json::json;
+    use std::path::PathBuf;
+
+    fn tmp_updates() -> PathBuf {
+        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let p = std::env::temp_dir().join(format!("cxl-build-dir-{}-{}", std::process::id(), nanos));
+        std::fs::create_dir_all(&p).unwrap();
+        p
+    }
+
+    #[test]
+    fn rejects_unsafe_dir_names() {
+        let up = tmp_updates();
+        for d in ["", "   ", ".", "..", "../x", "a/b", "a\\b", "C:\\x", "C:x", "/abs", "assets", "Assets", "JAVA", "libs"] {
+            assert!(build_dir(&up, &json!({ "dir": d })).is_err(), "{d:?} должен быть отклонён");
+        }
+        assert!(build_dir(&up, &json!({})).is_err());
+        assert!(build_dir(&up, &json!({ "dir": "CubeXTech", "assetDir": "cubextech" })).is_err());
+        let _ = std::fs::remove_dir_all(&up);
+    }
+
+    #[test]
+    fn accepts_build_inside_updates() {
+        let up = tmp_updates();
+        let p = build_dir(&up, &json!({ "dir": "CubeXTech", "assetDir": "assets" })).unwrap();
+        assert!(p.starts_with(&up));
+        assert_ne!(p, up);
+        assert_eq!(p.file_name().unwrap(), "CubeXTech");
+        let _ = std::fs::remove_dir_all(&up);
+    }
 }
