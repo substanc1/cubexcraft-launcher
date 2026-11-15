@@ -274,5 +274,11 @@
  "scenes.servermenu.vote": "ГОЛОСУВАТИ ЗА ПРОЄКТ",
  "scenes.servermenu.voteReward": "+{n} CX за голос на кожному майданчику",
  "scenes.servermenu.newsEmpty": "Новин поки немає",
- "scenes.servermenu.newsError": "Новини не завантажились"
+ "scenes.servermenu.newsError": "Новини не завантажились",
+ "scenes.servermenu.newsUpdated": "оновлено о {t}",
+ "scenes.servermenu.newsRefresh": "Оновити",
+ "scenes.servermenu.newsOnSite": "На сайті",
+ "scenes.servermenu.newsPinned": "ЗАКРІПЛЕНО",
+ "scenes.servermenu.newsNew": "НОВЕ",
+ "scenes.servermenu.newsSearch": "Пошук у новинах…"
 }

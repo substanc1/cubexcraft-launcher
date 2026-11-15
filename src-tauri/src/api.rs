@@ -220,13 +220,23 @@ pub async fn social(http: &reqwest::Client, token: &str, path: &str, body: Optio
     r.json().await.map_err(net)
 }
 
-/// Новости сайта для правой колонки (без входа, website/launcher-api.js /news) и данные кнопки «Голосовать».
+/// Новости сайта для правой колонки и страницы «Новости» (без входа, website/launcher-api.js /news, limit — сколько, 1..30)
+/// и данные кнопки «Голосовать».
 /// Обложки качаются здесь, тем же клиентом (через ретранслятор, если он включён), и уходят в интерфейс как data:-адреса:
 /// сам WebView ходил бы к сайту напрямую, а из РФ такие соединения режут после ~16 КБ. Обложка, которая не скачалась, — null.
-pub async fn news(http: &reqwest::Client) -> Result<Value, ApiError> {
+pub async fn news(http: &reqwest::Client, limit: Option<u32>) -> Result<Value, ApiError> {
     use base64::Engine;
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
     const MAX_COVER: usize = 2 << 20;
-    let r = http.get(format!("{API}/news")).timeout(std::time::Duration::from_secs(20)).send().await.map_err(net)?;
+    // обложки, уже скачанные в этом запуске: лента обновляется сама каждые несколько минут — картинки заново не качаем
+    static COVERS: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+    let covers = COVERS.get_or_init(|| Mutex::new(HashMap::new()));
+    let url = match limit {
+        Some(n) => format!("{API}/news?limit={}", n.clamp(1, 30)),
+        None => format!("{API}/news"),
+    };
+    let r = http.get(url).timeout(std::time::Duration::from_secs(20)).send().await.map_err(net)?;
     if !r.status().is_success() {
         return Err(fail(r).await);
     }
@@ -234,6 +244,10 @@ pub async fn news(http: &reqwest::Client) -> Result<Value, ApiError> {
     if let Some(list) = v.get_mut("news").and_then(|n| n.as_array_mut()) {
         for item in list.iter_mut() {
             let Some(url) = item.get("cover").and_then(|c| c.as_str()).map(String::from) else { continue };
+            if let Some(hit) = covers.lock().ok().and_then(|m| m.get(&url).cloned()) {
+                item["cover"] = Value::String(hit);
+                continue;
+            }
             let data = async {
                 if !url.starts_with("https://www.cubexcraft.site/") {
                     return None;
@@ -250,6 +264,12 @@ pub async fn news(http: &reqwest::Client) -> Result<Value, ApiError> {
                 (bytes.len() <= MAX_COVER).then(|| format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(&bytes)))
             }
             .await;
+            if let (Some(d), Ok(mut m)) = (&data, covers.lock()) {
+                if m.len() >= 64 {
+                    m.clear();
+                }
+                m.insert(url, d.clone());
+            }
             item["cover"] = data.map(Value::String).unwrap_or(Value::Null);
         }
     }

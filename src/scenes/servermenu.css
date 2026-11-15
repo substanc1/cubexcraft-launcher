@@ -222,3 +222,22 @@
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 .sm-news.open .sm-newsBody { display: block; -webkit-line-clamp: unset; }
+
+/* страница «Новости» в основной колонке (SCRUM-633): кнопка рейла открывает её, лента обновляется сама */
+.sm-newsPage { display: flex; flex-direction: column; gap: 14px; }
+.sm-newsPage .sm-gridHead { height: 26px; }
+.sm-newsStamp { font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; color: var(--text-secondary); white-space: nowrap; }
+.sm-filterChip { cursor: pointer; }
+.sm-filterChip:hover:not(:disabled) { border-color: var(--red); color: var(--text-hover); }
+.sm-filterChip:disabled { opacity: .55; cursor: default; }
+.sm-article { display: flex; flex-direction: column; overflow: hidden; flex: none; transition: border-color .25s, box-shadow .25s; }
+.sm-article.focus { border-color: var(--red); box-shadow: 0 0 4px var(--glow-color), 0 0 12px var(--glow-color); }
+.sm-articleCover { display: block; width: 100%; aspect-ratio: 2.4; max-height: 250px; object-fit: cover; border-bottom: 1px solid var(--border-dark); }
+.sm-articleText { display: flex; flex-direction: column; gap: 8px; padding: 16px 20px 18px; }
+.sm-articleMeta { display: flex; align-items: center; gap: 10px; min-height: 16px; }
+.sm-articleTitle { font-family: 'Unbounded SemiBold'; font-size: 18px; line-height: 24px; color: var(--text-hover); }
+.sm-articleBody { font-family: 'Manrope'; font-size: 14px; line-height: 22px; color: var(--text-secondary); white-space: pre-line; user-select: text; -webkit-user-select: text; cursor: text; }
+.sm-badgeNew {
+  font-family: 'JetBrains Mono Bold'; font-size: 9px; line-height: 11.88px; color: var(--green);
+  background: var(--greenTr); border: 1px solid var(--green); padding: 2px 6px;
+}

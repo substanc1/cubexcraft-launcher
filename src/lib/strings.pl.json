@@ -274,5 +274,11 @@
  "scenes.servermenu.vote": "GŁOSUJ NA PROJEKT",
  "scenes.servermenu.voteReward": "+{n} CX za głos na każdej stronie",
  "scenes.servermenu.newsEmpty": "Brak aktualności",
- "scenes.servermenu.newsError": "Nie udało się wczytać aktualności"
+ "scenes.servermenu.newsError": "Nie udało się wczytać aktualności",
+ "scenes.servermenu.newsUpdated": "zaktualizowano o {t}",
+ "scenes.servermenu.newsRefresh": "Odśwież",
+ "scenes.servermenu.newsOnSite": "Na stronie",
+ "scenes.servermenu.newsPinned": "PRZYPIĘTE",
+ "scenes.servermenu.newsNew": "NOWE",
+ "scenes.servermenu.newsSearch": "Szukaj w aktualnościach…"
 }

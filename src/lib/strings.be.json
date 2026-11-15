@@ -274,5 +274,11 @@
  "scenes.servermenu.vote": "ГАЛАСАВАЦЬ ЗА ПРАЕКТ",
  "scenes.servermenu.voteReward": "+{n} CX за голас на кожнай пляцоўцы",
  "scenes.servermenu.newsEmpty": "Навін пакуль няма",
- "scenes.servermenu.newsError": "Навіны не загрузіліся"
+ "scenes.servermenu.newsError": "Навіны не загрузіліся",
+ "scenes.servermenu.newsUpdated": "абноўлена ў {t}",
+ "scenes.servermenu.newsRefresh": "Абнавіць",
+ "scenes.servermenu.newsOnSite": "На сайце",
+ "scenes.servermenu.newsPinned": "ЗАМАЦАВАНА",
+ "scenes.servermenu.newsNew": "НОВАЕ",
+ "scenes.servermenu.newsSearch": "Пошук па навінах…"
 }

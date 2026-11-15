@@ -274,5 +274,11 @@
  "scenes.servermenu.vote": "VOTE FOR THE PROJECT",
  "scenes.servermenu.voteReward": "+{n} CX per vote on each site",
  "scenes.servermenu.newsEmpty": "No news yet",
- "scenes.servermenu.newsError": "News did not load"
+ "scenes.servermenu.newsError": "News did not load",
+ "scenes.servermenu.newsUpdated": "updated at {t}",
+ "scenes.servermenu.newsRefresh": "Refresh",
+ "scenes.servermenu.newsOnSite": "On the website",
+ "scenes.servermenu.newsPinned": "PINNED",
+ "scenes.servermenu.newsNew": "NEW",
+ "scenes.servermenu.newsSearch": "Search news…"
 }

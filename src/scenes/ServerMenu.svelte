@@ -1,7 +1,7 @@
 <script>
   // scenes/servermenu/servermenu.fxml + ServerMenuScene + components/userBlock.fxml/UserBlock
   import './servermenu.css';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { app, t, switchScene, processRequest, showApplyDialog, saveSettings, startDrag, errorHandle } from '../lib/app.svelte.js';
   import { call } from '../lib/backend.js';
   import { play } from '../lib/play.js';
@@ -45,7 +45,55 @@
   let news = $state([]);
   let vote = $state(null);
   let newsState = $state('loading');
-  let openNews = $state(null);
+  // страница «Новости» (SCRUM-633): лента обновляется сама раз в NEWS_EVERY, на кнопке рейла — сколько новых с прошлого просмотра
+  const NEWS_EVERY = 3 * 60 * 1000;
+  const NEWS_LIMIT = 20;
+  let newsAt = $state(0);
+  let newsBusy = $state(false);
+  let focusNews = $state(null);
+  let newsSeenPrev = $state(null);
+  const maxNewsId = () => news.reduce((m, n) => Math.max(m, Number(n.id) || 0), 0);
+  const newsUnseen = $derived(app.settings?.newsSeen == null ? 0 : news.filter(n => Number(n.id) > app.settings.newsSeen).length);
+  const shownNews = $derived(
+    news.filter(n => {
+      const q = search.trim().toLowerCase();
+      return !q || (n.title + ' ' + n.body).toLowerCase().includes(q);
+    }),
+  );
+  const hhmm = ms => new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  function markNewsSeen() {
+    if (!app.settings || !news.length) return;
+    const m = maxNewsId();
+    if (app.settings.newsSeen !== m) {
+      app.settings.newsSeen = m;
+      saveSettings();
+    }
+  }
+  async function loadNews() {
+    if (newsBusy) return;
+    newsBusy = true;
+    try {
+      const v = await call('news_get', { limit: NEWS_LIMIT });
+      news = (v && v.news) || [];
+      vote = v && v.vote && v.vote.url ? v.vote : v && v.voteUrl ? { url: v.voteUrl } : null;
+      newsState = 'ok';
+      newsAt = Date.now();
+      // первый запуск этой версии: всё, что уже есть, считаем просмотренным — счётчик только для новых
+      if (app.settings && app.settings.newsSeen == null) markNewsSeen();
+      if (nav === 'news') markNewsSeen();
+    } catch {
+      if (!news.length) newsState = 'error';
+    } finally {
+      newsBusy = false;
+    }
+  }
+  async function openArticle(id) {
+    navTo('news');
+    focusNews = id;
+    await tick();
+    const el = document.getElementById('sm-news-' + id);
+    if (el && mainScroll) mainScroll.scrollTop = el.offsetTop - 18;
+  }
   const newsDate = d => {
     const x = new Date(d);
     return isNaN(x) ? '' : x.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -87,14 +135,11 @@
   onMount(() => {
     // друзья: статус «в сети» и свежий список; длительность игры у друзей тикает
     friendsOnLogin();
-    call('news_get')
-      .then(v => {
-        news = (v && v.news) || [];
-        vote = v && v.vote && v.vote.url ? v.vote : v && v.voteUrl ? { url: v.voteUrl } : null;
-        newsState = 'ok';
-      })
-      .catch(() => (newsState = 'error'));
-    const tick = setInterval(() => (now = Date.now()), 30000);
+    loadNews();
+    const newsTimer = setInterval(loadNews, NEWS_EVERY);
+    // только разработка: снимок страницы новостей headless-браузером (?scene=servermenu&nav=news)
+    if (import.meta.env.DEV && new URLSearchParams(location.search).get('nav') === 'news') setTimeout(() => navTo('news'), 400);
+    const clock = setInterval(() => (now = Date.now()), 30000);
     // ServerMenuScene.reset: пинг каждого сервера, выбранный - lastProfile или первый
     if (!app.selected) app.selected = app.settings?.lastProfile || null;
     for (const p of profiles) {
@@ -104,7 +149,10 @@
         .then(r => (pings[p.uuid] = r))
         .catch(() => {});
     }
-    return () => clearInterval(tick);
+    return () => {
+      clearInterval(clock);
+      clearInterval(newsTimer);
+    };
   });
 
   function navTo(which) {
@@ -116,7 +164,12 @@
       sideScroll.scrollTop = friendsSection.offsetTop - sideScroll.offsetTop;
       navLabel = t('scenes.servermenu.nav.friends');
     } else if (which === 'news') {
-      sideScroll.scrollTop = 0;
+      // своя страница в основной колонке; лента старше минуты — подтянуть свежую
+      mainScroll.scrollTop = 0;
+      focusNews = null;
+      newsSeenPrev = app.settings?.newsSeen ?? null;
+      markNewsSeen();
+      if (Date.now() - newsAt > 60000) loadNews();
       navLabel = t('scenes.servermenu.nav.news');
     }
   }
@@ -150,7 +203,10 @@
       <span class="sm-railIcon" style={icon('friends')}></span>
       {#if friends.requests.length}<span class="sm-railBadge">{friends.requests.length}</span>{/if}
     </button>
-    <button type="button" class="sm-railNav" class:selected={nav === 'news'} aria-label={t('scenes.servermenu.nav.news')} use:tooltip={t('scenes.servermenu.nav.news')} onclick={() => navTo('news')}><span class="sm-railIcon" style={icon('news')}></span></button>
+    <button type="button" class="sm-railNav" class:selected={nav === 'news'} aria-label={t('scenes.servermenu.nav.news')} use:tooltip={t('scenes.servermenu.nav.news')} onclick={() => navTo('news')}>
+      <span class="sm-railIcon" style={icon('news')}></span>
+      {#if newsUnseen && nav !== 'news'}<span class="sm-railBadge">{newsUnseen}</span>{/if}
+    </button>
     <div class="sm-grow"></div>
     <button type="button" class="sm-railNav" aria-label={t('scenes.servermenu.nav.settings')} use:tooltip={t('scenes.servermenu.nav.settings')} onclick={() => switchScene('settings')}><span class="sm-railIcon" style={icon('settings')}></span></button>
     <button type="button" class="sm-deauth" aria-label={t('scenes.servermenu.deauthTooltip')} use:tooltip={t('scenes.servermenu.deauthTooltip')} onclick={doDeauth}><span class="sm-railIcon" style={icon('power')}></span></button>
@@ -162,7 +218,7 @@
       <span class="sm-word"><span>CUBE</span><span class="sm-accent">X</span><span>CRAFT</span></span>
       <span class="sm-navChip">{navLabel}</span>
       <label class="sm-searchBox" data-no-drag>
-        <input class="sm-search" bind:value={search} placeholder={t('scenes.servermenu.search')} spellcheck="false" />
+        <input class="sm-search" bind:value={search} placeholder={t(nav === 'news' ? 'scenes.servermenu.newsSearch' : 'scenes.servermenu.search')} spellcheck="false" />
         <span class="sm-searchGlyph">⌕</span>
       </label>
     </div>
@@ -183,6 +239,33 @@
     <!-- Основная колонка -->
     <div class="sm-main scroll" bind:this={mainScroll} use:fxscroll={{ right: 0, top: 109, bottom: 109, width: 12 }}>
       <div class="sm-mainColumn">
+        {#if nav === 'news'}
+          <div class="sm-newsPage">
+            <div class="sm-gridHead">
+              <span class="sm-tag">{t('scenes.servermenu.feedTag')}</span>
+              {#if newsAt}<span class="sm-newsStamp">{t('scenes.servermenu.newsUpdated').replace('{t}', hhmm(newsAt))}</span>{/if}
+              <span class="sm-grow"></span>
+              <button type="button" class="sm-filterChip" disabled={newsBusy} onclick={loadNews} data-no-drag>{newsBusy ? '…' : t('scenes.servermenu.newsRefresh')}</button>
+              <button type="button" class="sm-filterChip" onclick={() => call('open_url', { url: 'https://www.cubexcraft.site/' })} data-no-drag>{t('scenes.servermenu.newsOnSite')}</button>
+            </div>
+            {#each shownNews as n (n.id)}
+              <article class="sm-article sm-panel" id={'sm-news-' + n.id} class:focus={focusNews === n.id}>
+                {#if n.cover}<img class="sm-articleCover" src={n.cover} alt="" />{/if}
+                <div class="sm-articleText">
+                  <div class="sm-articleMeta">
+                    <span class="sm-newsDate">{newsDate(n.date)}</span>
+                    {#if n.pinned}<span class="sm-badgeWipe">{t('scenes.servermenu.newsPinned')}</span>{/if}
+                    {#if newsSeenPrev != null && Number(n.id) > newsSeenPrev}<span class="sm-badgeNew">{t('scenes.servermenu.newsNew')}</span>{/if}
+                  </div>
+                  <div class="sm-articleTitle">{n.title}</div>
+                  <div class="sm-articleBody">{n.body}</div>
+                </div>
+              </article>
+            {:else}
+              <span class="sm-emptyState">{newsState === 'loading' ? '…' : newsState === 'error' ? t('scenes.servermenu.newsError') : t('scenes.servermenu.newsEmpty')}</span>
+            {/each}
+          </div>
+        {:else}
         {#if selected}
           <div class="sm-hero sm-panel">
             <div class="sm-heroTagRow">
@@ -266,6 +349,7 @@
             </div>
           </div>
         {/if}
+        {/if}
       </div>
     </div>
 
@@ -279,9 +363,10 @@
               {#if vote.reward > 0}<span class="sm-voteReward">{t('scenes.servermenu.voteReward').replace('{n}', vote.reward)}</span>{/if}
             </button>
           {/if}
+          {#if nav !== 'news'}
           <span class="sm-tag">{t('scenes.servermenu.feedTag')}</span>
-          {#each news as n (n.id)}
-            <button type="button" class="sm-news" class:open={openNews === n.id} onclick={() => (openNews = openNews === n.id ? null : n.id)} data-no-drag>
+          {#each news.slice(0, 6) as n (n.id)}
+            <button type="button" class="sm-news" onclick={() => openArticle(n.id)} data-no-drag>
               {#if n.cover}<img class="sm-newsCover" src={n.cover} alt="" />{/if}
               <span class="sm-newsText">
                 <span class="sm-newsDate">{newsDate(n.date)}</span>
@@ -292,6 +377,7 @@
           {:else}
             <span class="sm-emptyState">{newsState === 'loading' ? '…' : newsState === 'error' ? t('scenes.servermenu.newsError') : t('scenes.servermenu.newsEmpty')}</span>
           {/each}
+          {/if}
         </div>
         <div class="sm-sideSection sm-friendsSection" bind:this={friendsSection}>
           <span class="sm-tag">{t('scenes.servermenu.friendsTag')}{friends.friends.length ? ' · ' + friendsOnline + '/' + friends.friends.length : ''}</span>

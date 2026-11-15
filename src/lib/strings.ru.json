@@ -278,5 +278,11 @@
  "scenes.servermenu.vote": "ГОЛОСОВАТЬ ЗА ПРОЕКТ",
  "scenes.servermenu.voteReward": "+{n} CX за голос на каждой площадке",
  "scenes.servermenu.newsEmpty": "Новостей пока нет",
- "scenes.servermenu.newsError": "Новости не загрузились"
+ "scenes.servermenu.newsError": "Новости не загрузились",
+ "scenes.servermenu.newsUpdated": "обновлено в {t}",
+ "scenes.servermenu.newsRefresh": "Обновить",
+ "scenes.servermenu.newsOnSite": "На сайте",
+ "scenes.servermenu.newsPinned": "ЗАКРЕПЛЕНО",
+ "scenes.servermenu.newsNew": "НОВОЕ",
+ "scenes.servermenu.newsSearch": "Поиск по новостям…"
 }
