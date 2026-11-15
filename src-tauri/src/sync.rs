@@ -10,7 +10,7 @@ use crate::api::Manifest;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -30,6 +30,10 @@ pub struct Rules {
     pub delete_extra: bool,
     /// всё считается «обновляемым» (assets, свои библиотеки лаунчера)
     pub update_all: bool,
+    /// для путей should_update всегда считать sha1 файла, кэш index не использовать (проверка «всё заново»)
+    pub force_hash: bool,
+    /// дополнительно удалять лишние файлы в своих папках сборки (не пользовательские) и осиротевшие *.cxl-part
+    pub deep_clean: bool,
 }
 
 impl Rules {
@@ -45,6 +49,38 @@ impl Rules {
     pub fn should_verify(&self, p: &str) -> bool {
         Self::any(&self.verify, p) && !Self::any(&self.exclusions, p)
     }
+}
+
+/// итог синхронизации: сколько файлов проверено, скачано и удалено
+#[derive(Serialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncStats {
+    pub checked: u64,
+    pub downloaded: u64,
+    pub removed: u64,
+}
+
+/// пользовательские пути (миры, скриншоты, логи, настройки и т.п.) - лаунчер их не трогает никогда
+pub fn is_user_path(rel: &str) -> bool {
+    let Some((first, _)) = rel.split_once('/') else { return true };
+    if first.starts_with('.') {
+        return true;
+    }
+    const USER_DIRS: [&str; 12] = [
+        "saves", "screenshots", "logs", "crash-reports", "resourcepacks", "shaderpacks", "config", "journeymap",
+        "xaeroworldmap", "xaerowaypoints", "schematics", "local",
+    ];
+    let lower = first.to_ascii_lowercase();
+    USER_DIRS.contains(&lower.as_str())
+}
+
+/// deep_clean: лишний файл (не из манифеста) удаляется, если он не пользовательский и лежит в папке,
+/// которая есть в манифесте (manifest_top_dirs - первые сегменты ключей манифеста, содержащих '/')
+pub fn should_deep_remove(rel: &str, manifest_top_dirs: &HashSet<String>) -> bool {
+    if is_user_path(rel) {
+        return false;
+    }
+    rel.split_once('/').map(|(first, _)| manifest_top_dirs.contains(first)).unwrap_or(false)
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -116,7 +152,7 @@ pub struct Syncer {
 
 impl Syncer {
     /// Привести каталог root к манифесту. emit - прогресс (вызывается не чаще ~10 раз/с).
-    pub async fn sync(&self, m: &Manifest, root: &Path, rules: &Rules, emit: &(dyn Fn(Progress) + Send + Sync)) -> Result<(), String> {
+    pub async fn sync(&self, m: &Manifest, root: &Path, rules: &Rules, emit: &(dyn Fn(Progress) + Send + Sync)) -> Result<SyncStats, String> {
         std::fs::create_dir_all(root).map_err(|e| format!("{}: {e}", root.display()))?;
         // 1. проверка: что качать
         let entries: Vec<(String, u64, String)> = m.files.iter().map(|(k, (s, h))| (k.clone(), *s, h.clone())).collect();
@@ -155,7 +191,7 @@ impl Syncer {
                             false
                         }
                         Some((s, mt)) => {
-                            let cached = index.lock().unwrap().files.get(&key).cloned();
+                            let cached = if rules.force_hash { None } else { index.lock().unwrap().files.get(&key).cloned() };
                             let use_cache = !rules.should_verify(&rel);
                             match cached {
                                 Some((cs, cm, ch)) if use_cache && cs == s && cm == mt => ch == sha1,
@@ -191,13 +227,27 @@ impl Syncer {
             return Err("cancelled".into());
         }
 
-        // 2. лишние файлы под update/verify
-        if rules.delete_extra {
+        // 2. лишние файлы под update/verify (deep_clean: ещё в своих папках сборки и осиротевшие *.cxl-part)
+        let mut removed: u64 = 0;
+        if rules.delete_extra || rules.deep_clean {
             let mut local = Vec::new();
             walk(root, root, &mut local);
+            let tops: HashSet<String> = if rules.deep_clean {
+                m.files.keys().filter_map(|k| k.split_once('/').map(|(t, _)| t.to_string())).collect()
+            } else {
+                HashSet::new()
+            };
             for rel in local {
-                if !m.files.contains_key(&rel) && rules.should_update(&rel) {
-                    let _ = std::fs::remove_file(root.join(&rel));
+                if m.files.contains_key(&rel) {
+                    continue;
+                }
+                let gone = if let Some(target) = rel.strip_suffix(".cxl-part") {
+                    rules.deep_clean && !m.files.contains_key(target) && !is_user_path(&rel)
+                } else {
+                    (rules.delete_extra && rules.should_update(&rel)) || (rules.deep_clean && should_deep_remove(&rel, &tops))
+                };
+                if gone && std::fs::remove_file(root.join(&rel)).is_ok() {
+                    removed += 1;
                 }
             }
             remove_empty_dirs(root, root, rules);
@@ -271,7 +321,7 @@ impl Syncer {
         }
         result?;
         emit(Progress { phase: "done", done: total, total, files_done: files_total, files_total, file: String::new(), speed: 0.0 });
-        Ok(())
+        Ok(SyncStats { checked: total_check, downloaded: files_total, removed })
     }
 }
 
@@ -360,10 +410,7 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<String>) {
             walk(root, &p, out);
         } else if ft.is_file() {
             if let Ok(rel) = p.strip_prefix(root) {
-                let rel = rel.to_string_lossy().replace('\\', "/");
-                if !rel.ends_with(".cxl-part") {
-                    out.push(rel);
-                }
+                out.push(rel.to_string_lossy().replace('\\', "/"));
             }
         }
     }
@@ -396,10 +443,45 @@ pub fn rules_from_profile(p: &serde_json::Value) -> Rules {
     let list = |k: &str| -> Vec<String> {
         p.get(k).and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default()
     };
-    Rules { update: list("update"), verify: list("updateVerify"), exclusions: list("updateExclusions"), delete_extra: true, update_all: false }
+    Rules {
+        update: list("update"),
+        verify: list("updateVerify"),
+        exclusions: list("updateExclusions"),
+        delete_extra: true,
+        update_all: false,
+        force_hash: false,
+        deep_clean: false,
+    }
 }
 
 #[allow(dead_code)]
 pub fn manifest_paths(m: &Manifest) -> BTreeMap<String, u64> {
     m.files.iter().map(|(k, (s, _))| (k.clone(), *s)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tops(keys: &[&str]) -> HashSet<String> {
+        keys.iter().filter_map(|k| k.split_once('/').map(|(t, _)| t.to_string())).collect()
+    }
+
+    #[test]
+    fn is_user_path_cases() {
+        assert!(is_user_path("options.txt"), "корневой файл - пользовательский");
+        assert!(is_user_path(".minecraft/x"), "точечная папка - пользовательская");
+        assert!(is_user_path("saves/world/level.dat"));
+        assert!(is_user_path("Saves/world/level.dat"), "регистр не важен");
+        assert!(is_user_path("Config/x.toml"), "регистр не важен");
+        assert!(!is_user_path("mods/x.jar"));
+    }
+
+    #[test]
+    fn should_deep_remove_cases() {
+        let t = tops(&["mods/a.jar", "natives/x.so"]);
+        assert!(should_deep_remove("mods/foo.jar", &t));
+        assert!(!should_deep_remove("config/x", &tops(&["config/y.toml"])), "config - пользовательская папка");
+        assert!(!should_deep_remove("unknown/x", &t), "такой папки нет в манифесте");
+    }
 }
