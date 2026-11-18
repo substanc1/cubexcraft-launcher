@@ -68,5 +68,8 @@ async fn ping_inner(host: &str, port: u16) -> std::io::Result<PingInfo> {
     s.read_exact(&mut buf).await?;
     let v: serde_json::Value = serde_json::from_slice(&buf)?;
     let p = &v["players"];
-    Ok(PingInfo { online: p["online"].as_i64().unwrap_or(0), max: p["max"].as_i64().unwrap_or(0) })
+    Ok(PingInfo {
+        online: p["online"].as_i64().unwrap_or(0),
+        max: p["max"].as_i64().unwrap_or(0),
+    })
 }

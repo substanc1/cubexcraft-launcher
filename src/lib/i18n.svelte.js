@@ -1,4 +1,4 @@
-// Строки - те же, что у JavaFX-лаунчера (runtime_<язык>.properties -> strings.<язык>.json, tools/props2json.mjs).
+// Строки интерфейса: strings.<язык>.json.
 // Язык переключается сразу (LanguageSelector -> gui.reload): t() читает реактивную локаль.
 import ru from './strings.ru.json';
 import en from './strings.en.json';
@@ -36,7 +36,7 @@ export function t(key, fallback) {
   return v !== undefined ? v : fallback !== undefined ? fallback : `'${key}'`;
 }
 
-// FxComponent.errorHandle: "runtime.request.<msg>" если есть перевод, иначе сам текст
+// ошибка: "runtime.request.<msg>" если есть перевод, иначе сам текст
 export function requestError(message) {
   return t('request.' + message, message);
 }

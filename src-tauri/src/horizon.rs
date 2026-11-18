@@ -12,14 +12,28 @@ pub fn is_horizon(profile: &Value) -> bool {
 
 /// ключ платформы для horizon.dirs: os ("windows"|"macos"|"linux") + "-" + ("arm64"|"x64") по машине
 pub fn platform_key() -> String {
-    let os = if cfg!(windows) { "windows" } else if cfg!(target_os = "macos") { "macos" } else { "linux" };
-    let arch = if paths::machine_arch() == "arm64" { "arm64" } else { "x64" };
+    let os = if cfg!(windows) {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else {
+        "linux"
+    };
+    let arch = if paths::machine_arch() == "arm64" {
+        "arm64"
+    } else {
+        "x64"
+    };
     format!("{os}-{arch}")
 }
 
 /// текст ошибки, когда для платформы нет пакета: «<title> пока не поддерживается на <ОС> <арх>»
 pub fn unsupported_msg(title: &str, platform: &str) -> String {
-    let title = if title.trim().is_empty() { "CubeXRust" } else { title.trim() };
+    let title = if title.trim().is_empty() {
+        "CubeXRust"
+    } else {
+        title.trim()
+    };
     let (os, arch) = platform.split_once('-').unwrap_or((platform, ""));
     let os = match os {
         "windows" => "Windows",
@@ -32,7 +46,11 @@ pub fn unsupported_msg(title: &str, platform: &str) -> String {
         "arm64" => "ARM64",
         other => other,
     };
-    let system = if arch.is_empty() { os.to_string() } else { format!("{os} {arch}") };
+    let system = if arch.is_empty() {
+        os.to_string()
+    } else {
+        format!("{os} {arch}")
+    };
     format!("{title} пока не поддерживается на {system}")
 }
 
@@ -47,7 +65,10 @@ pub fn pick_dir(profile: &Value, platform: &str) -> Result<String, String> {
             .map(str::to_string)
             .ok_or_else(|| unsupported_msg(profile["title"].as_str().unwrap_or(""), platform));
     }
-    profile["dir"].as_str().map(str::to_string).ok_or_else(|| "dir".to_string())
+    profile["dir"]
+        .as_str()
+        .map(str::to_string)
+        .ok_or_else(|| "dir".to_string())
 }
 
 /// папка клиента под эту машину (см. pick_dir)
@@ -56,7 +77,11 @@ pub fn client_dir_name(profile: &Value) -> Result<String, String> {
 }
 
 pub fn exe_name(windows: bool) -> &'static str {
-    if windows { "horizon-client.exe" } else { "horizon-client" }
+    if windows {
+        "horizon-client.exe"
+    } else {
+        "horizon-client"
+    }
 }
 
 pub fn exe(client_dir: &Path) -> PathBuf {
@@ -72,7 +97,10 @@ pub fn prepare_exe(exe: &Path) {
     }
     #[cfg(target_os = "macos")]
     {
-        let _ = std::process::Command::new("xattr").args(["-dr", "com.apple.quarantine"]).arg(exe).output();
+        let _ = std::process::Command::new("xattr")
+            .args(["-dr", "com.apple.quarantine"])
+            .arg(exe)
+            .output();
     }
     #[cfg(not(unix))]
     let _ = exe;
@@ -83,7 +111,10 @@ pub fn prepare_exe(exe: &Path) {
 pub fn write_session(gs: &GameSession) -> Result<PathBuf, String> {
     let dir = paths::cxl_dir().join("sessions");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
     let path = dir.join(format!("horizon-{stamp}.json"));
     let body = serde_json::json!({
         "name": gs.username,
@@ -96,7 +127,12 @@ pub fn write_session(gs: &GameSession) -> Result<PathBuf, String> {
     {
         use std::io::Write;
         use std::os::unix::fs::OpenOptionsExt;
-        let mut f = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&path).map_err(|e| e.to_string())?;
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&path)
+            .map_err(|e| e.to_string())?;
         f.write_all(body.as_bytes()).map_err(|e| e.to_string())?;
     }
     #[cfg(not(unix))]
@@ -106,8 +142,10 @@ pub fn write_session(gs: &GameSession) -> Result<PathBuf, String> {
 
 pub fn args(profile: &Value, resources: &Path, session: &Path, auto_enter: bool) -> Vec<String> {
     let mut args = vec![
-        "--resources".to_string(), resources.to_string_lossy().to_string(),
-        "--session-file".to_string(), session.to_string_lossy().to_string(),
+        "--resources".to_string(),
+        resources.to_string_lossy().to_string(),
+        "--session-file".to_string(),
+        session.to_string_lossy().to_string(),
     ];
     if auto_enter {
         if let Some(s) = profile["servers"].as_array().and_then(|a| a.first()) {
@@ -123,7 +161,10 @@ pub fn args(profile: &Value, resources: &Path, session: &Path, auto_enter: bool)
 /// окружение игры: её папка, адреса входа сайта, без телеметрии и проверки обновлений автора Horizon
 pub fn env(profile: &Value, client_dir: &Path) -> Vec<(String, String)> {
     let mut env = vec![
-        ("HORIZON_HOME".to_string(), client_dir.to_string_lossy().to_string()),
+        (
+            "HORIZON_HOME".to_string(),
+            client_dir.to_string_lossy().to_string(),
+        ),
         ("HORIZON_TELEMETRY_URL".to_string(), "off".to_string()),
         ("HORIZON_NO_UPDATE_CHECK".to_string(), "1".to_string()),
     ];
@@ -147,12 +188,18 @@ mod tests {
 
     #[test]
     fn pick_dir_windows_x64() {
-        assert_eq!(pick_dir(&profile_with_dirs(), "windows-x64").unwrap(), "cubexrust-win-x64");
+        assert_eq!(
+            pick_dir(&profile_with_dirs(), "windows-x64").unwrap(),
+            "cubexrust-win-x64"
+        );
     }
 
     #[test]
     fn pick_dir_macos_arm64() {
-        assert_eq!(pick_dir(&profile_with_dirs(), "macos-arm64").unwrap(), "cubexrust-mac-arm64");
+        assert_eq!(
+            pick_dir(&profile_with_dirs(), "macos-arm64").unwrap(),
+            "cubexrust-mac-arm64"
+        );
     }
 
     #[test]
@@ -174,8 +221,14 @@ mod tests {
 
     #[test]
     fn unsupported_msg_default_title() {
-        assert_eq!(unsupported_msg("", "windows-x64"), "CubeXRust пока не поддерживается на Windows x64");
-        assert_eq!(unsupported_msg("  ", "linux-arm64"), "CubeXRust пока не поддерживается на Linux ARM64");
+        assert_eq!(
+            unsupported_msg("", "windows-x64"),
+            "CubeXRust пока не поддерживается на Windows x64"
+        );
+        assert_eq!(
+            unsupported_msg("  ", "linux-arm64"),
+            "CubeXRust пока не поддерживается на Linux ARM64"
+        );
     }
 
     #[test]
@@ -193,7 +246,18 @@ mod tests {
     #[test]
     fn platform_key_shape() {
         let k = platform_key();
-        assert!(["windows-x64", "windows-arm64", "macos-x64", "macos-arm64", "linux-x64", "linux-arm64"].contains(&k.as_str()), "{k}");
+        assert!(
+            [
+                "windows-x64",
+                "windows-arm64",
+                "macos-x64",
+                "macos-arm64",
+                "linux-x64",
+                "linux-arm64"
+            ]
+            .contains(&k.as_str()),
+            "{k}"
+        );
     }
 
     #[test]

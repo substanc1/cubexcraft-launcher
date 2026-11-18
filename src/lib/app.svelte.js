@@ -1,4 +1,4 @@
-// Общее состояние лаунчера (аналог JavaFXApplication + FxStage: текущая сцена, оверлеи, уведомления).
+// Общее состояние лаунчера: текущая сцена, оверлеи, уведомления.
 import { call, inTauri } from './backend.js';
 import { t, requestError, i18n } from './i18n.svelte.js';
 
@@ -37,7 +37,7 @@ export function notify(head, message) {
   }, 3000);
 }
 
-// FxComponent.errorHandle: ошибка запроса -> уведомление "Error" с переводом
+// ошибка запроса -> уведомление "Error" с переводом
 export function errorHandle(e) {
   const msg = typeof e === 'string' ? e : (e && (e.message || e.toString())) || String(e);
   notify('Error', requestError(msg));
@@ -109,7 +109,7 @@ export function reloadScene() {
   app.sceneNonce++;
 }
 
-// FxStage.back: экраны с isDisableReturnBack (update) при возврате пропускаются - из лога игры назад в меню
+// назад: экраны из NO_RETURN_BACK (сейчас update) при возврате пропускаются - из лога игры назад в меню
 const NO_RETURN_BACK = new Set(['update']);
 
 export async function back() {
@@ -139,7 +139,7 @@ export function setLocale(id) {
   saveSettings();
 }
 
-// FxStage.enableMouseDrag: окно тянется за любую "пустую" область (не поле ввода/кнопку/ссылку)
+// окно тянется за любую "пустую" область (не поле ввода/кнопку/ссылку)
 export async function startDrag(e) {
   if (e.button !== 0) return;
   if (e.target.closest('input, textarea, button, a, select, [data-no-drag], .scroll')) return;

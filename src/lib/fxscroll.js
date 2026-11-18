@@ -1,5 +1,5 @@
-// Полоса прокрутки как у JavaFX-лаунчера (global.css ScrollBar): своя дорожка (стекло, тень, радиус 10) и бегунок
-// (-fx-border-dark, отступ 1, красный при наведении). Нативная полоса скрыта. Позиция задаётся относительно
+// Полоса прокрутки: своя дорожка (стекло, тень, радиус 10) и бегунок
+// (цвет границы, отступ 1, красный при наведении). Нативная полоса скрыта. Позиция задаётся относительно
 // прокручиваемого блока: right (отрицательный - вынесена за рамку, как translate-x: 17px), top/bottom - отступы
 // дорожки (padding ScrollBar + кнопки-стрелки). Видна только когда содержимое не помещается (AS_NEEDED).
 // use:fxscroll={{ right: -15, top: 110, bottom: 111, width: 12 }}
@@ -15,7 +15,8 @@ export function fxscroll(node, opts) {
   host.appendChild(track);
 
   function layout() {
-    const visible = node.clientHeight, total = node.scrollHeight;
+    const visible = node.clientHeight,
+      total = node.scrollHeight;
     if (total <= visible + 1) {
       track.style.display = 'none';
       return;
@@ -41,7 +42,8 @@ export function fxscroll(node, opts) {
   });
   const move = e => {
     if (!drag) return;
-    const len = track.clientHeight, th = thumb.offsetHeight;
+    const len = track.clientHeight,
+      th = thumb.offsetHeight;
     const k = (node.scrollHeight - node.clientHeight) / Math.max(1, len - th);
     node.scrollTop = drag.top + (e.clientY - drag.y) * k;
   };

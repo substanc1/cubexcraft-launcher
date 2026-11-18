@@ -1,0 +1,3 @@
+src/lib/strings.*.json
+*.css
+src/**/*.css

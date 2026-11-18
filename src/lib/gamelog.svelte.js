@@ -3,7 +3,7 @@
 // прикрепляются к предыдущей записи. Подряд идущие одинаковые сообщения схлопываются в одну запись со счётчиком.
 // Записи - обычный массив (не $state: тысячи строк в секунду при старте), интерфейс обновляется по log.rev,
 // не чаще раза за кадр. Буфер ~256К символов, старые записи отбрасываются целиком.
-export const LEVELS = ['error', 'warn', 'info', 'debug', 'other'];
+const LEVELS = ['error', 'warn', 'info', 'debug', 'other'];
 
 export const log = $state({
   rev: 0,
@@ -25,7 +25,11 @@ const TRACE_LINE = /^(\s|at |Caused by|Suppressed:|\.\.\. \d+ more)/;
 const EXCEPTION = /^(Exception in thread|[\w$]+(\.[\w$]+)+(Exception|Error|Throwable)\b)/;
 
 // строки без заголовка (System.out модов, java.util.logging, log4j status): уровень по слову в строке
-const RAW_LEVEL = [[/\b(SEVERE|ERROR|FATAL)\b/, 'error', 'ERROR'], [/\bWARN(ING)?\b/, 'warn', 'WARN'], [/\bINFO\b/, 'info', 'INFO']];
+const RAW_LEVEL = [
+  [/\b(SEVERE|ERROR|FATAL)\b/, 'error', 'ERROR'],
+  [/\bWARN(ING)?\b/, 'warn', 'WARN'],
+  [/\bINFO\b/, 'info', 'INFO'],
+];
 
 const BUCKET = { TRACE: 'debug', DEBUG: 'debug', INFO: 'info', WARN: 'warn', ERROR: 'error', FATAL: 'error' };
 
@@ -82,9 +86,15 @@ function push(line) {
     return;
   }
   if (!line.trim()) return;
-  let level = 'other', tag = '';
+  let level = 'other',
+    tag = '';
   if (EXCEPTION.test(line)) [level, tag] = ['error', 'ERROR'];
-  else for (const [re, lv, tg] of RAW_LEVEL) if (re.test(line)) { [level, tag] = [lv, tg]; break; }
+  else
+    for (const [re, lv, tg] of RAW_LEVEL)
+      if (re.test(line)) {
+        [level, tag] = [lv, tg];
+        break;
+      }
   add({ id: ++seq, time: '', thread: '', level, tag, src: '', short: '', msg: line, more: [], n: 1, raw: line, size: line.length + 1 });
 }
 

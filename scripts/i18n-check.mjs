@@ -17,16 +17,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CODES = ['ru', 'en', 'uk', 'be', 'pl'];
 const CYR = /\p{Script=Cyrillic}/u;
 
-// Пустые значения, которые уже есть в ru и во всех переводах. В коде не используются
-// (grep по t('...') - нет ссылок). t() отдаёт '' (не fallback), поэтому удалять их без решения нельзя.
-// Вопрос владельцу: удалить или заполнить. Пока - исключение, чтобы проверка была зелёной.
-const EMPTY_OK = new Set([
-  'overlay.processing.text.uploadassetinfo',
-  'scenes.console.version',
-  'scenes.update.speed',
-  'scenes.update.volume',
-  'scenes.update.outputUpdate',
-]);
+// Исключения из проверки пустых значений. Сейчас пусто: пустые ключи, которых нет в коде, удалены (SCRUM-734).
+const EMPTY_OK = new Set([]);
 
 // Русский текст, который осознанно остаётся в en/uk: имя кнопки в боте «✅ Это я» (на русском у бота).
 // Для проверок буквы ы/э/ъ/ё (uk) и кириллицы (en) такой ключ пропускается.
@@ -66,7 +58,12 @@ for (const c of CODES) {
     else if (v.trim() === '' && !EMPTY_OK.has(k)) errors.push(`[${c}] пустое значение: ${k}`);
   }
 }
-info.push(`ключей: ru=${ruKeys.length}, ` + CODES.filter(c => c !== 'ru').map(c => `${c}=${Object.keys(dicts[c]).length}`).join(', '));
+info.push(
+  `ключей: ru=${ruKeys.length}, ` +
+    CODES.filter(c => c !== 'ru')
+      .map(c => `${c}=${Object.keys(dicts[c]).length}`)
+      .join(', '),
+);
 info.push(`пустых значений-исключений: ${EMPTY_OK.size} (см. EMPTY_OK)`);
 
 // 3: плейсхолдеры
@@ -118,7 +115,11 @@ for (const abs of files) {
     codeLines++;
     const src = orig[i].trim();
     const rule = ALLOW.find(a => a.file === rel && src.includes(a.match));
-    if (rule) { allowed++; used.add(rule); return; }
+    if (rule) {
+      allowed++;
+      used.add(rule);
+      return;
+    }
     errors.push(`${rel}:${i + 1}: кириллица вне словаря: ${src.slice(0, 160)}`);
   });
 }

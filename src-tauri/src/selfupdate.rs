@@ -36,7 +36,9 @@ fn same_path(a: &Path, b: &Path) -> bool {
 #[cfg(windows)]
 fn wait_pid(pid: u32, timeout: Duration) {
     use windows_sys::Win32::Foundation::CloseHandle;
-    use windows_sys::Win32::System::Threading::{OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE};
+    use windows_sys::Win32::System::Threading::{
+        OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE,
+    };
     unsafe {
         let h = OpenProcess(PROCESS_SYNCHRONIZE, 0, pid);
         if !h.is_null() {
@@ -68,7 +70,9 @@ pub fn on_startup() -> bool {
             wait_pid(pid, Duration::from_secs(10));
         }
     }
-    let Ok(me) = std::env::current_exe() else { return false };
+    let Ok(me) = std::env::current_exe() else {
+        return false;
+    };
     // хвосты прошлого обновления
     let old = PathBuf::from(format!("{}.old", me.to_string_lossy()));
     if old.exists() {
@@ -79,7 +83,9 @@ pub fn on_startup() -> bool {
         let _ = std::fs::remove_dir_all(format!("{}.old", b.to_string_lossy()));
     }
     let marker = paths::app_dir().join(MARKER);
-    let Ok(raw) = std::fs::read_to_string(&marker) else { return false };
+    let Ok(raw) = std::fs::read_to_string(&marker) else {
+        return false;
+    };
     let Ok(m) = serde_json::from_str::<GravitMarker>(&raw) else {
         let _ = std::fs::remove_file(&marker);
         return false;
@@ -114,8 +120,13 @@ pub fn on_startup() -> bool {
 }
 
 fn cleanup_new_files(target: &Path) {
-    let Some(name) = target.file_name().map(|n| n.to_string_lossy().to_string()) else { return };
-    for dir in [paths::app_dir(), target.parent().map(Path::to_path_buf).unwrap_or_default()] {
+    let Some(name) = target.file_name().map(|n| n.to_string_lossy().to_string()) else {
+        return;
+    };
+    for dir in [
+        paths::app_dir(),
+        target.parent().map(Path::to_path_buf).unwrap_or_default(),
+    ] {
         if let Ok(rd) = std::fs::read_dir(&dir) {
             for e in rd.flatten() {
                 let f = e.file_name().to_string_lossy().to_string();
@@ -148,13 +159,21 @@ pub fn platform_key() -> String {
 }
 
 fn newer(remote: &str, local: &str) -> bool {
-    let p = |s: &str| s.split('.').map(|x| x.parse::<u64>().unwrap_or(0)).collect::<Vec<_>>();
+    let p = |s: &str| {
+        s.split('.')
+            .map(|x| x.parse::<u64>().unwrap_or(0))
+            .collect::<Vec<_>>()
+    };
     p(remote) > p(local)
 }
 
 pub async fn check(http: &reqwest::Client) -> Option<Release> {
     let r = http
-        .get(format!("{}/cxl/launcher/{}.json", crate::api::SITE, platform_key()))
+        .get(format!(
+            "{}/cxl/launcher/{}.json",
+            crate::api::SITE,
+            platform_key()
+        ))
         .timeout(Duration::from_secs(4))
         .send()
         .await
@@ -167,7 +186,11 @@ pub async fn check(http: &reqwest::Client) -> Option<Release> {
 }
 
 /// скачать, проверить, поставить на место текущего exe и запустить; emit(done,total)
-pub async fn apply(http: &reqwest::Client, rel: &Release, emit: &(dyn Fn(u64, u64) + Send + Sync)) -> Result<(), String> {
+pub async fn apply(
+    http: &reqwest::Client,
+    rel: &Release,
+    emit: &(dyn Fn(u64, u64) + Send + Sync),
+) -> Result<(), String> {
     use futures_util::StreamExt;
     use tokio::io::AsyncWriteExt;
     let me = std::env::current_exe().map_err(|e| e.to_string())?;
@@ -176,11 +199,17 @@ pub async fn apply(http: &reqwest::Client, rel: &Release, emit: &(dyn Fn(u64, u6
     } else {
         PathBuf::from(format!("{}.download", me.to_string_lossy()))
     };
-    let r = http.get(&rel.url).send().await.map_err(|e| e.without_url().to_string())?;
+    let r = http
+        .get(&rel.url)
+        .send()
+        .await
+        .map_err(|e| e.without_url().to_string())?;
     if !r.status().is_success() {
         return Err(format!("HTTP {}", r.status().as_u16()));
     }
-    let mut f = tokio::fs::File::create(&tmp).await.map_err(|e| e.to_string())?;
+    let mut f = tokio::fs::File::create(&tmp)
+        .await
+        .map_err(|e| e.to_string())?;
     let mut h = Sha256::new();
     let mut got = 0u64;
     let mut s = r.bytes_stream();
@@ -223,7 +252,9 @@ pub async fn apply(http: &reqwest::Client, rel: &Release, emit: &(dyn Fn(u64, u6
 /// .app, внутри которого мы запущены (…/CubeXCraft.app/Contents/MacOS/CubeX)
 #[cfg(target_os = "macos")]
 fn bundle_of(exe: &Path) -> Option<PathBuf> {
-    exe.ancestors().find(|p| p.extension().map(|e| e == "app").unwrap_or(false)).map(Path::to_path_buf)
+    exe.ancestors()
+        .find(|p| p.extension().map(|e| e == "app").unwrap_or(false))
+        .map(Path::to_path_buf)
 }
 
 /// macOS: распаковать архив .app рядом с текущим (тот же том), старый -> .app.old, новый на его место,
@@ -236,7 +267,9 @@ fn apply_mac_bundle(me: &Path, archive: &Path) -> Result<(), String> {
     let _ = std::fs::remove_dir_all(&staging);
     std::fs::create_dir_all(&staging).map_err(|e| format!("{}: {e}", parent.display()))?;
     let f = std::fs::File::open(archive).map_err(|e| e.to_string())?;
-    tar::Archive::new(flate2::read::GzDecoder::new(f)).unpack(&staging).map_err(|e| e.to_string())?;
+    tar::Archive::new(flate2::read::GzDecoder::new(f))
+        .unpack(&staging)
+        .map_err(|e| e.to_string())?;
     let new_app = std::fs::read_dir(&staging)
         .map_err(|e| e.to_string())?
         .flatten()

@@ -4,4 +4,4 @@
   let { glyph, kind = '', tip = '', onclick = null } = $props();
 </script>
 
-<button type="button" class="icon-button {kind}" use:tooltip={tip} onclick={onclick} data-no-drag>{glyph}</button>
+<button type="button" class="icon-button {kind}" use:tooltip={tip} {onclick} data-no-drag>{glyph}</button>

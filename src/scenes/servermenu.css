@@ -1,5 +1,4 @@
-/* Экран серверов (1246x640). Геометрия - из раскладки JavaFX (tools/snap -> scenes_servermenu_servermenu.layout.txt).
-   Высоты строк = метрики JavaFX: Unbounded 1.24em, JetBrains Mono 1.32em, Manrope 1.366em. */
+/* Экран серверов (1246x640). Высоты строк заданы явно по метрикам шрифтов: Unbounded 1.24em, JetBrains Mono 1.32em, Manrope 1.366em. */
 .sm-root { position: relative; width: 1246px; height: 640px; overflow: hidden; }
 .sm-grow { flex: 1; }
 .sm-tag { font-family: 'JetBrains Mono'; font-size: 10px; line-height: 13.2px; height: 14px; color: var(--yellow); white-space: nowrap; }
@@ -84,7 +83,7 @@
 .sm-heroName { font-family: 'Unbounded ExtraBold'; font-size: 28px; line-height: 34.72px; height: 35px; color: var(--text-hover); white-space: nowrap; }
 .sm-heroChips { height: 28px; display: flex; gap: 8px; }
 .sm-heroChip { height: 28px; padding: 0 11px; display: flex; align-items: center; font-family: 'JetBrains Mono'; font-size: 11px; line-height: 14.52px; color: #333333; border: 1px solid transparent; } /* у .heroChip нет -fx-text-fill: цвет modena по умолчанию */
-/* JavaFX Label с -fx-line-spacing 3: шаг строк 23px, первая базовая линия на ascent (14.9) от верха */
+/* шаг строк 23px, первая базовая линия на ascent (14.9) от верха */
 .sm-heroDesc { max-width: 720px; margin-bottom: -3px; font-family: 'Manrope'; font-size: 14px; line-height: 23px; color: var(--text-secondary); }
 .sm-heroDesc > span { position: relative; top: -2px; }
 .sm-onlineBox { width: 200px; display: flex; flex-direction: column; gap: 4px; }

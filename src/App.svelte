@@ -25,10 +25,13 @@
 
   // SCRUM-665: окно фиксированное, но webview бывает увеличен (зум WebView2/масштаб Windows) - ужимаем под реальный viewport
   let fit = $state(1);
-  const refit = () => { fit = Math.min(1, innerWidth / WINDOW_SIZE[0], innerHeight / WINDOW_SIZE[1]) || 1; };
+  const refit = () => {
+    fit = Math.min(1, innerWidth / WINDOW_SIZE[0], innerHeight / WINDOW_SIZE[1]) || 1;
+  };
 
   onMount(async () => {
-    refit(); addEventListener('resize', refit);
+    refit();
+    addEventListener('resize', refit);
     try {
       initGameEvents();
       initFriends();
@@ -59,16 +62,14 @@
     // Не через requestAnimationFrame: WebKit (macOS/Linux) в скрытом окне его не вызывает - окно так и не появлялось
     await tick();
     call('window_show');
-    // новая версия лаунчера - ставится сразу (LauncherSelfUpdate.checkAndUpdate), но не посреди запуска игры
+    // новая версия лаунчера (проверка при старте, src-tauri/src/selfupdate.rs): показываем окном SelfUpdate, ставится по нажатию; не посреди запуска игры
     const rel = updateCheck && (await updateCheck);
     if (rel && !app.gameRunning && app.scene !== 'update' && app.scene !== 'debug') app.selfUpdate = rel;
   });
-
 </script>
 
 {#if ready}
-  <div class="window" class:freeze={import.meta.env.DEV && new URLSearchParams(location.search).has('freeze')}
-       style="width:{WINDOW_SIZE[0]}px;height:{WINDOW_SIZE[1]}px;zoom:{fit}">
+  <div class="window" class:freeze={import.meta.env.DEV && new URLSearchParams(location.search).has('freeze')} style="width:{WINDOW_SIZE[0]}px;height:{WINDOW_SIZE[1]}px;zoom:{fit}">
     <div class="sceneWrap" class:blurred={app.blurred} class:calm={app.settings && app.settings.reduceEffects}>
       <!-- каждый экран - свой слой: новый проявляется поверх старого (lib/transitions.js) -->
       {#key app.scene + ':' + app.sceneNonce}
@@ -92,12 +93,33 @@
 {/if}
 
 <style>
-  .sceneWrap { position: absolute; inset: 0; transition: filter .28s ease-out; }
-  .sceneWrap.calm { transition: none; }
-  .sceneLayer { position: absolute; inset: 0; z-index: 1; transform-origin: 50% 50%; }
-  /* FxStage.disable(): GaussianBlur(150) на сцене под оверлеем */
-  .sceneWrap.blurred { filter: blur(50px); }
-  /* dev: ?freeze - анимации стоят в исходном положении, как на статичных эталонах JavaFX */
-  .freeze :global(*) { animation: none !important; }
-  .todo { display: grid; place-items: center; height: 100%; font-family: 'JetBrains Mono'; color: var(--text-secondary); }
+  .sceneWrap {
+    position: absolute;
+    inset: 0;
+    transition: filter 0.28s ease-out;
+  }
+  .sceneWrap.calm {
+    transition: none;
+  }
+  .sceneLayer {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    transform-origin: 50% 50%;
+  }
+  /* сцена под оверлеем размыта */
+  .sceneWrap.blurred {
+    filter: blur(50px);
+  }
+  /* dev: ?freeze - анимации стоят в исходном положении, как на статичных эталонных снимках */
+  .freeze :global(*) {
+    animation: none !important;
+  }
+  .todo {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    font-family: 'JetBrains Mono';
+    color: var(--text-secondary);
+  }
 </style>

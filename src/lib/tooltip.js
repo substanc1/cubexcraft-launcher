@@ -30,7 +30,9 @@ export function tooltip(node, text) {
   node.addEventListener('mouseleave', hide);
   node.addEventListener('mousedown', hide);
   return {
-    update(t) { current = t; },
+    update(t) {
+      current = t;
+    },
     destroy() {
       node.removeEventListener('mouseenter', enter);
       node.removeEventListener('mouseleave', hide);

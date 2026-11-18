@@ -32,7 +32,12 @@
   }
 </script>
 
-<svelte:window onmousedown={e => { if (!e.target.closest('.qa-menu')) onclose(); }} onblur={onclose} />
+<svelte:window
+  onmousedown={e => {
+    if (!e.target.closest('.qa-menu')) onclose();
+  }}
+  onblur={onclose}
+/>
 
 <div class="qa-menu" style="left:{anchor.left}px;top:{anchor.bottom + 6}px">
   {#each list as acc}
@@ -47,15 +52,33 @@
 <style>
   /* .context-menu.quickAccountMenu */
   .qa-menu {
-    position: fixed; z-index: 60; min-width: 160px; padding: 4px;
-    background: var(--panel); border: 1px solid var(--border-dark);
+    position: fixed;
+    z-index: 60;
+    min-width: 160px;
+    padding: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border-dark);
     box-shadow: 0 8px 16px #000000aa;
-    display: flex; flex-direction: column;
+    display: flex;
+    flex-direction: column;
   }
   .qa-item {
-    text-align: left; padding: 8px 12px; background: transparent;
-    font-family: 'JetBrains Mono'; font-size: 12px; line-height: 15.84px; color: var(--text); white-space: nowrap;
+    text-align: left;
+    padding: 8px 12px;
+    background: transparent;
+    font-family: 'JetBrains Mono';
+    font-size: 12px;
+    line-height: 15.84px;
+    color: var(--text);
+    white-space: nowrap;
   }
-  .qa-item:hover { background: var(--redTr); color: var(--text-hover); }
-  .qa-sep { height: 0; margin: 4px 0; border-top: 1px solid var(--border-dark); }
+  .qa-item:hover {
+    background: var(--redTr);
+    color: var(--text-hover);
+  }
+  .qa-sep {
+    height: 0;
+    margin: 4px 0;
+    border-top: 1px solid var(--border-dark);
+  }
 </style>
