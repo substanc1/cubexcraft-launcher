@@ -191,6 +191,8 @@ impl Syncer {
                             false
                         }
                         Some((s, mt)) => {
+                            // use_cache: файл не в списке verify - доверяем кэшу sha1, пока размер и mtime не менялись; иначе хэш пересчитывается
+                            // force_hash: кэш index не используется, sha1 считается заново для каждого файла (режим «всё заново»)
                             let cached = if rules.force_hash { None } else { index.lock().unwrap().files.get(&key).cloned() };
                             let use_cache = !rules.should_verify(&rel);
                             match cached {

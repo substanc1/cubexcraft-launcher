@@ -26,7 +26,7 @@
   // ОЗУ - для текущего профиля (или первого), как addRamSectionUnsafe
   const ramProfile = $derived(app.selected || (app.profiles[0] && app.profiles[0].uuid));
   const ram = $derived((ramProfile && s.profiles && s.profiles[ramProfile] && s.profiles[ramProfile].ram) || 0);
-  // ширина как у JavaFX: моноширинный 11px (шаг 6.6) + отступы 32 + рамка 2, округление вверх
+  // ширина по длине подписи: моноширинный 11px (шаг 6.6) + отступы 32 + рамка 2, округление вверх
   const ramWidth = label => Math.ceil(label.length * 6.6 + 34);
   let openPicker = $state(null);
   let hex = $state('');

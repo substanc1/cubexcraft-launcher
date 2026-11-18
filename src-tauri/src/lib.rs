@@ -360,6 +360,7 @@ struct PlayOptions {
     auto_enter: bool,
 }
 
+/// Запуск игры по профилю: Horizon - своим путём; обычный клиент - маршрут, синхронизация файлов, запуск Java.
 #[tauri::command]
 async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: String, options: PlayOptions) -> R<()> {
     let token = state.token()?;
@@ -493,6 +494,7 @@ async fn play_horizon(app: &tauri::AppHandle, state: &State<'_, AppState>, token
     Ok(())
 }
 
+/// Запускает процесс Java-клиента и построчно читает его stdout/stderr.
 fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::path::Path, args: &[String], cwd: &std::path::Path, env: &[(String, String)], horizon: bool) -> R<()> {
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut cmd = tokio::process::Command::new(java);

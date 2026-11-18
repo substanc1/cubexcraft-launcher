@@ -31,6 +31,7 @@
       const ph = PHASE[p.stage] || p.stage;
       if (p.stage !== stage) {
         // libs (свои библиотеки лаунчера) - часть фазы клиента, отдельно не объявляем
+        // фраза фазы может начинаться с \n (отбивка); в логе первую пустую строку убираем
         if (!(p.stage === 'libs' || (p.stage === 'client' && stage === 'libs'))) addLog(t('scenes.update.phase.' + ph).replace(/^\n/, ''));
         else if (p.stage === 'libs') addLog(t('scenes.update.phase.client'));
         stage = p.stage;

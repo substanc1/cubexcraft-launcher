@@ -1,4 +1,4 @@
-// AES-256-GCM: формат как у старого лаунчера (JavaFXApplication.encryptCredential): base64(nonce12 | шифр | tag16),
+// AES-256-GCM: base64(nonce12 | шифр | tag16),
 // ключ - 32 случайных байта в файле рядом. Так же читаются remembered.dat/quick.dat старого лаунчера (ключ cxc.key).
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Nonce};

@@ -1,5 +1,5 @@
 <script>
-  // FxStage.pushNotification: колонка справа (10px от краёв), снизу вверх, между карточками 10px;
+  // уведомления: колонка справа (10px от краёв), снизу вверх, между карточками 10px;
   // карточка .notification 360px, иконка-колокольчик 48x48, заголовок/текст (components.css)
   import { app } from '../lib/app.svelte.js';
 </script>

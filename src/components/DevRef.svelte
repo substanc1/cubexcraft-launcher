@@ -1,5 +1,5 @@
 <script>
-  // Только для разработки (vite dev): наложение эталонного снимка JavaFX-экрана поверх новой вёрстки.
+  // Только для разработки (vite dev): наложение эталонного снимка экрана поверх новой вёрстки.
   // ?ref=scenes_login_login  (файл из app/dev-ref/), клавиша R: выкл -> разность -> 50% -> только эталон
   const params = new URLSearchParams(location.search);
   const ref = params.get('ref');

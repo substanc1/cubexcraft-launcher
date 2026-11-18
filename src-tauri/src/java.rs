@@ -1,5 +1,4 @@
-// Java для игры: одна загрузка с нашего сервера (а не 117 МБ Java+JavaFX с BellSoft раз в 30 дней, как у
-// старого престартера). Описание сборки: https://www.cubexcraft.site/cxl/java/<платформа>.json
+// Java для игры: одна загрузка с нашего сервера. Описание сборки: https://www.cubexcraft.site/cxl/java/<платформа>.json
 //   { "version": "...", "url": "...", "sha1": "...", "size": N, "format": "zip"|"tar.gz" }
 // Распакованная Java лежит в cxl/java/<платформа>/, рядом метка .cxl-java.json с версией.
 use crate::{api, paths};

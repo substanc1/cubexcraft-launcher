@@ -59,7 +59,7 @@
     // Не через requestAnimationFrame: WebKit (macOS/Linux) в скрытом окне его не вызывает - окно так и не появлялось
     await tick();
     call('window_show');
-    // новая версия лаунчера - ставится сразу (LauncherSelfUpdate.checkAndUpdate), но не посреди запуска игры
+    // новая версия лаунчера (проверка при старте, src-tauri/src/selfupdate.rs): показываем окном SelfUpdate, ставится по нажатию; не посреди запуска игры
     const rel = updateCheck && (await updateCheck);
     if (rel && !app.gameRunning && app.scene !== 'update' && app.scene !== 'debug') app.selfUpdate = rel;
   });
@@ -95,9 +95,9 @@
   .sceneWrap { position: absolute; inset: 0; transition: filter .28s ease-out; }
   .sceneWrap.calm { transition: none; }
   .sceneLayer { position: absolute; inset: 0; z-index: 1; transform-origin: 50% 50%; }
-  /* FxStage.disable(): GaussianBlur(150) на сцене под оверлеем */
+  /* сцена под оверлеем размыта */
   .sceneWrap.blurred { filter: blur(50px); }
-  /* dev: ?freeze - анимации стоят в исходном положении, как на статичных эталонах JavaFX */
+  /* dev: ?freeze - анимации стоят в исходном положении, как на статичных эталонных снимках */
   .freeze :global(*) { animation: none !important; }
   .todo { display: grid; place-items: center; height: 100%; font-family: 'JetBrains Mono'; color: var(--text-secondary); }
 </style>
