@@ -90,7 +90,6 @@ img { display: block; -webkit-user-drag: none; }
   border-radius: 5px;
   background: var(--base);
 }
-.scene-background { background: var(--base); }
 .bg-image { background-image: url('../assets/images/background.png'); background-size: cover; }
 
 /* кнопки-иконки шапки (.icon-button) */
@@ -105,7 +104,6 @@ img { display: block; -webkit-user-drag: none; }
 .icon-button.exit { border-color: var(--border-warn); color: var(--yellow); }
 .icon-button.exit:hover { background: var(--yellowTr); color: var(--yellow-hover); }
 .icon-button.close { border-color: var(--border-warn); }
-/* #cancel: глиф .icon-button-error (красный) */
 .icon-button.cancel { color: var(--red); }
 .icon-button.close:hover { background: var(--yellowTr); }
 

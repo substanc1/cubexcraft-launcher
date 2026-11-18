@@ -69,7 +69,7 @@ export function closeFriends() {
   friends.toast = '';
 }
 
-export function refreshFriends() {
+function refreshFriends() {
   return call('friends_get').then(apply).catch(() => {});
 }
 

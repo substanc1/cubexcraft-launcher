@@ -11,7 +11,7 @@ const toHex = ([r, g, b]) => '#' + [r, g, b].map(v => Math.round(Math.max(0, Mat
 const toRgba = ([r, g, b], a) => `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${a.toFixed(2)})`;
 
 // JavaFX Color.getHue / Color.hsb
-export function hue([r, g, b]) {
+function hue([r, g, b]) {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
   if (d === 0) return 0;
@@ -32,7 +32,7 @@ export const fitText = rgb => toHex(fit(rgb, 0.3, 0.95));
 export const fitLines = rgb => toHex(fit(rgb, 0.78, 0.34));
 export const DEFAULTS = { accent: '#FF2A3C', background: '#04040C', text: '#FAEEEE', lines: '#4A1018' };
 
-export function themeVars(c) {
+function themeVars(c) {
   const v = {};
   let x;
   if ((x = hexToRgb(c.accent))) {

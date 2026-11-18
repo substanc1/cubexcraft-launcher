@@ -30,8 +30,7 @@ pub fn read_old() -> Option<Migration> {
         "reduceEffects": g.get("reduceEffects").and_then(|v| v.as_bool()).unwrap_or(false),
         "customColors": rt.get("customColors").cloned().unwrap_or(json!({})),
         "quickAccounts": [],
-        "profiles": {},
-        "migratedFromGravit": true
+        "profiles": {}
     });
     // настройки клиентов (ОЗУ, полный экран, автовход) - backend.settings старого лаунчера
     if let Some(ps) = old.pointer("/userSettings/backend/settings").and_then(|v| v.as_object()) {

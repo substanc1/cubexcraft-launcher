@@ -319,11 +319,6 @@ async fn auth_logout(state: State<'_, AppState>) -> R<Value> {
     Ok(state.quick_list())
 }
 
-#[tauri::command]
-fn accounts_list(state: State<'_, AppState>) -> Value {
-    state.quick_list()
-}
-
 // ---------------------------------------------------------------- профили и серверы
 
 #[tauri::command]
@@ -597,11 +592,6 @@ fn game_kill(state: State<'_, AppState>) {
     if let Some(tx) = state.game_kill.lock().unwrap().take() {
         let _ = tx.send(());
     }
-}
-
-#[tauri::command]
-fn game_running(state: State<'_, AppState>) -> bool {
-    is_running(&state)
 }
 
 #[tauri::command]
@@ -1146,8 +1136,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            app_init, settings_save, auth_login, auth_2fa_wait, auth_2fa_cancel, auth_restore, auth_remember, auth_logout, accounts_list,
-            profiles_list, server_ping, game_play, game_kill, game_running, sync_cancel, build_info, build_delete, build_verify,
+            app_init, settings_save, auth_login, auth_2fa_wait, auth_2fa_cancel, auth_restore, auth_remember, auth_logout,
+            profiles_list, server_ping, game_play, game_kill, sync_cancel, build_info, build_delete, build_verify,
             timing_mark, window_show, window_minimize, window_close, open_url,
             friends_get, friends_action, notes_action, presence_set, news_get,
             updates_dir_pick, updates_dir_change, open_path, logs_open, log_error, self_update_check, self_update_apply

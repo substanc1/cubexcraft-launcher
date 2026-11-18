@@ -10,7 +10,7 @@ use crate::api::Manifest;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -452,11 +452,6 @@ pub fn rules_from_profile(p: &serde_json::Value) -> Rules {
         force_hash: false,
         deep_clean: false,
     }
-}
-
-#[allow(dead_code)]
-pub fn manifest_paths(m: &Manifest) -> BTreeMap<String, u64> {
-    m.files.iter().map(|(k, (s, _))| (k.clone(), *s)).collect()
 }
 
 #[cfg(test)]
