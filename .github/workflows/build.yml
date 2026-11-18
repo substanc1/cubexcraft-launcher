@@ -1,5 +1,5 @@
 # Сборка CubeXCraft Launcher на машинах GitHub: macOS (универсальный .app + .dmg) и Linux ARM64.
-# Windows x64 и Linux x86_64 собираются у нас (ПК владельца / VPS). Запуск: вкладка Actions -> build -> Run workflow.
+# Linux x86_64 собирается у нас (ПК владельца / VPS). Windows x64 собирается и в Actions (job windows-x64). Запуск: вкладка Actions -> build -> Run workflow.
 name: build
 on:
   workflow_dispatch:
@@ -53,5 +53,41 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: linux-arm64
+          path: out/
+          retention-days: 3
+
+  windows-x64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - run: npm ci
+      - run: npm run build:win
+      - name: check PE x64
+        shell: pwsh
+        run: |
+          $path = "src-tauri/target/x86_64-pc-windows-msvc/release/CubeX.exe"
+          $b = [System.IO.File]::ReadAllBytes($path)
+          $e = [BitConverter]::ToInt32($b, 0x3C)
+          $machine = [BitConverter]::ToUInt16($b, $e + 4)
+          if ($machine -ne 0x8664) {
+            Write-Host ("ERROR: PE machine=0x{0:X4}, ожидали 0x8664 (x64)" -f $machine)
+            exit 1
+          }
+          Write-Host "OK: PE x64 (0x8664)"
+      - name: collect
+        shell: pwsh
+        run: |
+          New-Item out -ItemType Directory
+          Copy-Item src-tauri/target/x86_64-pc-windows-msvc/release/CubeX.exe out/CubeX.exe
+          Get-ChildItem out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
           path: out/
           retention-days: 3
