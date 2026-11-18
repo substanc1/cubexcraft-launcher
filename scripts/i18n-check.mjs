@@ -17,16 +17,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CODES = ['ru', 'en', 'uk', 'be', 'pl'];
 const CYR = /\p{Script=Cyrillic}/u;
 
-// Пустые значения, которые уже есть в ru и во всех переводах. В коде не используются
-// (grep по t('...') - нет ссылок). t() отдаёт '' (не fallback), поэтому удалять их без решения нельзя.
-// Вопрос владельцу: удалить или заполнить. Пока - исключение, чтобы проверка была зелёной.
-const EMPTY_OK = new Set([
-  'overlay.processing.text.uploadassetinfo',
-  'scenes.console.version',
-  'scenes.update.speed',
-  'scenes.update.volume',
-  'scenes.update.outputUpdate',
-]);
+// Исключения из проверки пустых значений. Сейчас пусто: пустые ключи, которых нет в коде, удалены (SCRUM-734).
+const EMPTY_OK = new Set([]);
 
 // Русский текст, который осознанно остаётся в en/uk: имя кнопки в боте «✅ Это я» (на русском у бота).
 // Для проверок буквы ы/э/ъ/ё (uk) и кириллицы (en) такой ключ пропускается.
