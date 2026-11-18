@@ -296,5 +296,11 @@
   "scenes.servermenu.sizeMB": "МБ",
   "scenes.servermenu.sizeKB": "КБ",
   "scenes.servermenu.deleting": "Удаляю сборку…",
-  "scenes.servermenu.deleted": "Сборка удалена, освобождено {size}."
+  "scenes.servermenu.deleted": "Сборка удалена, освобождено {size}.",
+ "components.selfupdate.title": "Обновление лаунчера",
+ "components.selfupdate.installing": "УСТАНОВКА...",
+ "scenes.update.speedUnit": "МБ/С",
+ "scenes.settings.unit.gb": "ГБ",
+ "request.twofa.denied": "Вход отклонён в Telegram",
+ "request.friends.notFound": "Игрок не найден"
 }

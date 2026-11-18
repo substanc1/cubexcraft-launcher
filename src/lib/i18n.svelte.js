@@ -19,6 +19,17 @@ export const LOCALES = [
 
 export const i18n = $state({ locale: 'RUSSIAN' });
 
+// код пакета текущего языка: 'ru' | 'en' | 'uk' | 'be' | 'pl'
+export function langCode() {
+  return (LOCALES.find(l => l.id === i18n.locale) || LOCALES[0]).code;
+}
+
+// локаль для Intl/toLocale*: по langCode()
+const DATE_LOCALES = { ru: 'ru-RU', en: 'en-GB', uk: 'uk-UA', be: 'be-BY', pl: 'pl-PL' };
+export function dateLocale() {
+  return DATE_LOCALES[langCode()];
+}
+
 export function t(key, fallback) {
   const code = (LOCALES.find(l => l.id === i18n.locale) || LOCALES[0]).code;
   const v = packs[code][key] ?? ru[key];

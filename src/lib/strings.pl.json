@@ -292,5 +292,15 @@
   "scenes.servermenu.sizeMB": "MB",
   "scenes.servermenu.sizeKB": "KB",
   "scenes.servermenu.deleting": "Usuwam build…",
-  "scenes.servermenu.deleted": "Build usunięty, zwolniono {size}."
+  "scenes.servermenu.deleted": "Build usunięty, zwolniono {size}.",
+ "overlay.addaccount.header": "DODAJ KONTO",
+ "overlay.addaccount.submit": "ZALOGUJ",
+ "overlay.addaccount.emptyFields": "Wpisz login i hasło",
+ "overlay.addaccount.authFailed": "Nie udało się zalogować - sprawdź login i hasło",
+ "components.selfupdate.title": "Aktualizacja launchera",
+ "components.selfupdate.installing": "INSTALACJA...",
+ "scenes.update.speedUnit": "MB/S",
+ "scenes.settings.unit.gb": "GB",
+ "request.twofa.denied": "Logowanie odrzucone w Telegramie",
+ "request.friends.notFound": "Nie znaleziono gracza"
 }

@@ -2,7 +2,7 @@
   // overlay/selfupdate (LauncherUpdateApply): карточка «CUBEXCRAFT | Обновление лаунчера», полоса, «УСТАНОВКА...».
   // Показывается, если при старте найдена новая версия лаунчера; ядро качает её, ставит и перезапускает.
   import { onMount } from 'svelte';
-  import { app, errorHandle } from '../lib/app.svelte.js';
+  import { app, t, errorHandle } from '../lib/app.svelte.js';
   import { call, on } from '../lib/backend.js';
   import logo from '../assets/images/logo.png';
 
@@ -25,12 +25,12 @@
       <img src={logo} alt="" height="20" />
       <span class="su-brand">CUBEXCRAFT</span>
       <span class="su-sep"></span>
-      <span class="su-text">Обновление лаунчера</span>
+      <span class="su-text">{t('components.selfupdate.title')}</span>
     </div>
     <div class="su-bar">
       {#if progress < 0}<div class="su-run"></div>{:else}<div class="su-fill" style="width:{progress * 100}%"></div>{/if}
     </div>
-    <div class="su-desc">УСТАНОВКА...</div>
+    <div class="su-desc">{t('components.selfupdate.installing')}</div>
   </div>
 </div>
 

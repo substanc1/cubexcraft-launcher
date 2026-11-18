@@ -3,6 +3,7 @@
 // Свой статус: online - лаунчер открыт, away - 5 мин без действий в окне лаунчера или окно скрыто/свёрнуто;
 // «играет на сборке» ставит ядро само при запуске игры.
 import { app, t, notify } from './app.svelte.js';
+import { dateLocale, requestError } from './i18n.svelte.js';
 import { call, on } from './backend.js';
 
 const AWAY_MS = 5 * 60 * 1000;
@@ -52,7 +53,7 @@ async function act(promise, okText) {
     if (okText) toast(okText(v));
     return v;
   } catch (e) {
-    toast(String(e && (e.message || e)), true);
+    toast(requestError(String(e && (e.message || e))), true);
     return null;
   }
 }
@@ -110,12 +111,12 @@ export function noteTime(n, now = Date.now()) {
   if (sec < 60) return t('friends.now');
   if (sec < 3600) return fmt(t('friends.min'), { n: Math.floor(sec / 60) });
   const at = new Date(Date.now() - sec * 1000);
-  const hm = at.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const hm = at.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
   const today = new Date();
   const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
   if (at.toDateString() === today.toDateString()) return fmt(t('friends.hours'), { n: Math.floor(sec / 3600) });
   if (at.toDateString() === yesterday.toDateString()) return fmt(t('friends.yesterday'), { t: hm });
-  return at.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) + ' · ' + hm;
+  return at.toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit' }) + ' · ' + hm;
 }
 
 export const requestNote = r => (r.mutual > 0 ? fmt(t('friends.mutual'), { n: r.mutual }) : t('friends.wants'));

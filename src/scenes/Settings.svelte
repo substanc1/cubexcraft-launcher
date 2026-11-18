@@ -1,8 +1,8 @@
 <script>
   // scenes/settings/globalsettings.fxml + GlobalSettingsScene/BaseSettingsScene/LanguageSelector
   import './settings.css';
-  import { app, t, back, saveSettings, startDrag, errorHandle, notify } from '../lib/app.svelte.js';
-  import { i18n, LOCALES } from '../lib/i18n.svelte.js';
+  import { app, t, back, saveSettings, startDrag, errorHandle, notify, setLocale } from '../lib/app.svelte.js';
+  import { LOCALES } from '../lib/i18n.svelte.js';
   import { call } from '../lib/backend.js';
   import { applyTheme, hexToRgb, hsb, fitAccent, fitBackground, fitText, fitLines, DEFAULTS } from '../lib/theme.js';
   import IconButton from '../components/IconButton.svelte';
@@ -62,13 +62,6 @@
     setColor(key, fit(rgb));
     openPicker = null;
   }
-  function setLocale(id) {
-    langOpen = false;
-    if (id === s.locale) return;
-    s.locale = id;
-    i18n.locale = id;
-    saveSettings();
-  }
 
   async function changeDir() {
     try {
@@ -117,13 +110,13 @@
           <span class="st-h">{t('scenes.settings.header.ram')}</span>
           <div class="st-ramRow">
             {#each RAM as gb}
-              <button type="button" class="st-ram" style="width:{ramWidth(gb + ' ГБ')}px" class:selected={ram === gb * 1024} onclick={() => setRam(gb)}>{gb} ГБ</button>
+              <button type="button" class="st-ram" style="width:{ramWidth(gb + ' ' + t('scenes.settings.unit.gb'))}px" class:selected={ram === gb * 1024} onclick={() => setRam(gb)}>{gb} {t('scenes.settings.unit.gb')}</button>
             {/each}
             <button type="button" class="st-ram" style="width:{ramWidth(t('scenes.settings.ramAuto'))}px" class:selected={ram === 0} onclick={() => setRam(0)}>{t('scenes.settings.ramAuto')}</button>
           </div>
         {/if}
 
-        <span class="st-h">{t('scenes.settings.header.colors', 'Цвета интерфейса')}</span>
+        <span class="st-h">{t('scenes.settings.header.colors')}</span>
         {#each COLORS as [key, fit]}
           {@const value = (s.customColors && s.customColors[key]) || DEFAULTS[key]}
           <div class="st-row">
@@ -150,7 +143,7 @@
           </div>
         {/each}
         <div class="st-row">
-          <button type="button" class="st-action" onclick={resetColors}>{t('scenes.settings.properties.resetcolors.name', 'Сбросить цвета')}</button>
+          <button type="button" class="st-action" onclick={resetColors}>{t('scenes.settings.properties.resetcolors.name')}</button>
         </div>
       </div>
 
@@ -164,7 +157,7 @@
             {#if langOpen}
               <div class="st-comboList">
                 {#each LOCALES as l}
-                  <button type="button" class="st-comboItem" class:selected={l.id === (s.locale || 'RUSSIAN')} onclick={() => setLocale(l.id)}>{l.name}</button>
+                  <button type="button" class="st-comboItem" class:selected={l.id === (s.locale || 'RUSSIAN')} onclick={() => { langOpen = false; setLocale(l.id); }}>{l.name}</button>
                 {/each}
               </div>
             {/if}

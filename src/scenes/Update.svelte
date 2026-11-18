@@ -91,7 +91,7 @@
         <div class="up-speedOn">
           <div class="up-stat">
             <span class="up-speed">{speed}</span>
-            <span class="up-speedText">МБ/С</span>
+            <span class="up-speedText">{t('scenes.update.speedUnit')}</span>
           </div>
           <div class="up-stat">
             <span class="up-volume">{volume}</span>

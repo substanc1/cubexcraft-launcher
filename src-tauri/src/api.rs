@@ -224,7 +224,8 @@ pub async fn social(http: &reqwest::Client, token: &str, path: &str, body: Optio
 /// и данные кнопки «Голосовать».
 /// Обложки качаются здесь, тем же клиентом (через ретранслятор, если он включён), и уходят в интерфейс как data:-адреса:
 /// сам WebView ходил бы к сайту напрямую, а из РФ такие соединения режут после ~16 КБ. Обложка, которая не скачалась, — null.
-pub async fn news(http: &reqwest::Client, limit: Option<u32>) -> Result<Value, ApiError> {
+/// lang - язык новостей: добавляется в запрос, только если это ровно ru/en/uk (иначе сайт отдаёт язык по умолчанию)
+pub async fn news(http: &reqwest::Client, limit: Option<u32>, lang: Option<String>) -> Result<Value, ApiError> {
     use base64::Engine;
     use std::collections::HashMap;
     use std::sync::{Mutex, OnceLock};
@@ -232,9 +233,17 @@ pub async fn news(http: &reqwest::Client, limit: Option<u32>) -> Result<Value, A
     // обложки, уже скачанные в этом запуске: лента обновляется сама каждые несколько минут — картинки заново не качаем
     static COVERS: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
     let covers = COVERS.get_or_init(|| Mutex::new(HashMap::new()));
-    let url = match limit {
-        Some(n) => format!("{API}/news?limit={}", n.clamp(1, 30)),
-        None => format!("{API}/news"),
+    let mut query: Vec<String> = Vec::new();
+    if let Some(n) = limit {
+        query.push(format!("limit={}", n.clamp(1, 30)));
+    }
+    if let Some(l) = lang.as_deref().filter(|l| matches!(*l, "ru" | "en" | "uk")) {
+        query.push(format!("lang={l}"));
+    }
+    let url = if query.is_empty() {
+        format!("{API}/news")
+    } else {
+        format!("{API}/news?{}", query.join("&"))
     };
     let r = http.get(url).timeout(std::time::Duration::from_secs(20)).send().await.map_err(net)?;
     if !r.status().is_success() {

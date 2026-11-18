@@ -1,15 +1,16 @@
 <script>
   // scenes/servermenu/servermenu.fxml + ServerMenuScene + components/userBlock.fxml/UserBlock
   import './servermenu.css';
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { app, t, switchScene, processRequest, showApplyDialog, saveSettings, startDrag, errorHandle, notify } from '../lib/app.svelte.js';
   import { call } from '../lib/backend.js';
-  import { i18n, LOCALES } from '../lib/i18n.svelte.js';
+  import { i18n, LOCALES, dateLocale, langCode } from '../lib/i18n.svelte.js';
   import { play, verifyBuild } from '../lib/play.js';
   import IconButton from '../components/IconButton.svelte';
   import CutButton from '../components/CutButton.svelte';
   import Avatar from '../components/Avatar.svelte';
   import AccountMenu from '../components/AccountMenu.svelte';
+  import LanguageSwitcher from '../components/LanguageSwitcher.svelte';
   import FriendsPopup from '../components/FriendsPopup.svelte';
   import { friends, openFriends, friendsOnLogin, statusText } from '../lib/friends.svelte.js';
   import { tooltip } from '../lib/tooltip.js';
@@ -32,7 +33,8 @@
     '")';
 
   let nav = $state('servers');
-  let navLabel = $state(t('scenes.servermenu.nav.servers'));
+  let navKey = $state('servers'); // плашка у лого: ключ, а текст — от языка (SCRUM-691)
+  let navLabel = $derived(t('scenes.servermenu.nav.' + navKey));
   let search = $state('');
   let filter = $state('ALL');
   let modsExpanded = $state(false);
@@ -61,7 +63,7 @@
       return !q || (n.title + ' ' + n.body).toLowerCase().includes(q);
     }),
   );
-  const hhmm = ms => new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const hhmm = ms => new Date(ms).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
   function markNewsSeen() {
     if (!app.settings || !news.length) return;
     const m = maxNewsId();
@@ -70,11 +72,17 @@
       saveSettings();
     }
   }
+  // язык новостей: сайт отдаёт ru, en, uk; be и pl - русский (ядро тоже пропускает только ru/en/uk)
+  const newsLang = () => {
+    const c = langCode();
+    return c === 'en' || c === 'uk' ? c : 'ru';
+  };
   async function loadNews() {
     if (newsBusy) return;
     newsBusy = true;
+    const reqLang = newsLang();
     try {
-      const v = await call('news_get', { limit: NEWS_LIMIT });
+      const v = await call('news_get', { limit: NEWS_LIMIT, lang: reqLang });
       news = (v && v.news) || [];
       vote = v && v.vote && v.vote.url ? v.vote : v && v.voteUrl ? { url: v.voteUrl } : null;
       newsState = 'ok';
@@ -86,8 +94,17 @@
       if (!news.length) newsState = 'error';
     } finally {
       newsBusy = false;
+      // язык сменили во время загрузки: запрос шёл на старом языке - догружаем на новом
+      if (reqLang !== newsLang()) loadNews();
     }
   }
+  // смена языка лаунчера - новости заново на нужном языке (первый проход не дублирует загрузку из onMount)
+  let newsLoadedLang = null;
+  $effect(() => {
+    const code = newsLang();
+    if (newsLoadedLang !== null && code !== newsLoadedLang) untrack(() => loadNews());
+    newsLoadedLang = code;
+  });
   async function openArticle(id) {
     navTo('news');
     focusNews = id;
@@ -97,7 +114,7 @@
   }
   const newsDate = d => {
     const x = new Date(d);
-    return isNaN(x) ? '' : x.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return isNaN(x) ? '' : x.toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
   const friendsOnline = $derived(friends.friends.filter(f => f.state !== 'offline').length);
 
@@ -235,10 +252,10 @@
     nav = which;
     if (which === 'servers') {
       mainScroll.scrollTop = 0;
-      navLabel = t('scenes.servermenu.nav.servers');
+      navKey = 'servers';
     } else if (which === 'friends') {
       sideScroll.scrollTop = friendsSection.offsetTop - sideScroll.offsetTop;
-      navLabel = t('scenes.servermenu.nav.friends');
+      navKey = 'friends';
     } else if (which === 'news') {
       // своя страница в основной колонке; лента старше минуты — подтянуть свежую
       mainScroll.scrollTop = 0;
@@ -246,7 +263,7 @@
       newsSeenPrev = app.settings?.newsSeen ?? null;
       markNewsSeen();
       if (Date.now() - newsAt > 60000) loadNews();
-      navLabel = t('scenes.servermenu.nav.news');
+      navKey = 'news';
     }
   }
 
@@ -297,6 +314,7 @@
         <input class="sm-search" bind:value={search} placeholder={t(nav === 'news' ? 'scenes.servermenu.newsSearch' : 'scenes.servermenu.search')} spellcheck="false" />
         <span class="sm-searchGlyph">⌕</span>
       </label>
+      <LanguageSwitcher />
     </div>
     <div class="sm-userBlock">
       <button type="button" class="sm-userCard" onclick={e => (menuAnchor = e.currentTarget.getBoundingClientRect())} data-no-drag>
@@ -489,7 +507,7 @@
         {#if selected}
           <span class="sm-dockChip">{selected.version}</span>
           <span class="sm-dockChip">Java {app.javaVersion}</span>
-          <button type="button" class="sm-dockChip sm-dockConsole" onclick={openConsole}>{t('scenes.servermenu.consoleChip', 'КОНСОЛЬ')}</button>
+          <button type="button" class="sm-dockChip sm-dockConsole" onclick={openConsole}>{t('scenes.servermenu.consoleChip')}</button>
         {/if}
       </div>
     </div>
