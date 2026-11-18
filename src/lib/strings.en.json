@@ -292,5 +292,15 @@
   "scenes.servermenu.sizeMB": "MB",
   "scenes.servermenu.sizeKB": "KB",
   "scenes.servermenu.deleting": "Deleting build…",
-  "scenes.servermenu.deleted": "Build deleted, {size} freed."
+  "scenes.servermenu.deleted": "Build deleted, {size} freed.",
+ "overlay.addaccount.header": "ADD ACCOUNT",
+ "overlay.addaccount.submit": "SIGN IN",
+ "overlay.addaccount.emptyFields": "Enter login and password",
+ "overlay.addaccount.authFailed": "Sign-in failed - check login and password",
+ "components.selfupdate.title": "Launcher update",
+ "components.selfupdate.installing": "INSTALLING...",
+ "scenes.update.speedUnit": "MB/S",
+ "scenes.settings.unit.gb": "GB",
+ "request.twofa.denied": "Sign-in declined in Telegram",
+ "request.friends.notFound": "Player not found"
 }

@@ -292,5 +292,15 @@
   "scenes.servermenu.sizeMB": "МБ",
   "scenes.servermenu.sizeKB": "КБ",
   "scenes.servermenu.deleting": "Видаляю збірку…",
-  "scenes.servermenu.deleted": "Збірку видалено, звільнено {size}."
+  "scenes.servermenu.deleted": "Збірку видалено, звільнено {size}.",
+ "overlay.addaccount.header": "ДОДАТИ АКАУНТ",
+ "overlay.addaccount.submit": "УВІЙТИ",
+ "overlay.addaccount.emptyFields": "Заповніть логін і пароль",
+ "overlay.addaccount.authFailed": "Не вдалося увійти - перевірте логін і пароль",
+ "components.selfupdate.title": "Оновлення лаунчера",
+ "components.selfupdate.installing": "ВСТАНОВЛЕННЯ...",
+ "scenes.update.speedUnit": "МБ/С",
+ "scenes.settings.unit.gb": "ГБ",
+ "request.twofa.denied": "Вхід відхилено в Telegram",
+ "request.friends.notFound": "Гравця не знайдено"
 }
