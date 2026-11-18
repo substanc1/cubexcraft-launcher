@@ -18,14 +18,22 @@
 </script>
 
 {#if loaded}
-  <span class="av" style="width:{size}px;height:{size}px;
+  <span
+    class="av"
+    style="width:{size}px;height:{size}px;
     background-image:url('{loaded.src}'),url('{loaded.src}');
     background-size:{loaded.w * k * (64 / loaded.w)}px {loaded.h * k * (64 / loaded.w)}px;
-    background-position:{-40 * k}px {-8 * k}px, {-8 * k}px {-8 * k}px;"></span>
+    background-position:{-40 * k}px {-8 * k}px, {-8 * k}px {-8 * k}px;"
+  ></span>
 {:else}
   <img class="av" src={fallback} alt="" width={size} height={size} />
 {/if}
 
 <style>
-  .av { display: block; border-radius: 4px; image-rendering: pixelated; background-repeat: no-repeat; }
+  .av {
+    display: block;
+    border-radius: 4px;
+    image-rendering: pixelated;
+    background-repeat: no-repeat;
+  }
 </style>

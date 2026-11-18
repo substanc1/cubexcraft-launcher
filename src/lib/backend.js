@@ -38,20 +38,39 @@ const params = new URLSearchParams(typeof location !== 'undefined' ? location.se
 
 const mockProfiles = [
   {
-    uuid: 'b5bed500-0516-4b14-9f63-df7285b3bdf5', title: 'CubeXTech', version: '1.21.1', dir: 'CubeXCraft',
+    uuid: 'b5bed500-0516-4b14-9f63-df7285b3bdf5',
+    title: 'CubeXTech',
+    version: '1.21.1',
+    dir: 'CubeXCraft',
     info: 'CubeXTech — приватный сервер на NeoForge 1.21.1. Проект находится в стадии активной разработки: дорабатываем моды, механики и лаунчер перед первым публичным запуском.',
-    servers: [{ name: 'CubeXCraft', serverAddress: 'play.cubexcraft.site', serverPort: 25565 }], properties: {},
+    servers: [{ name: 'CubeXCraft', serverAddress: 'play.cubexcraft.site', serverPort: 25565 }],
+    properties: {},
   },
   {
-    uuid: '2c1f0a5e-0000-4000-8000-000000000002', title: 'OneCube', version: '1.21.1', dir: 'proj-oneblock',
-    info: 'Create: OneCube', servers: [{ name: 'OneCube', serverAddress: 'play.cubexcraft.site', serverPort: 25591 }], properties: {},
+    uuid: '2c1f0a5e-0000-4000-8000-000000000002',
+    title: 'OneCube',
+    version: '1.21.1',
+    dir: 'proj-oneblock',
+    info: 'Create: OneCube',
+    servers: [{ name: 'OneCube', serverAddress: 'play.cubexcraft.site', serverPort: 25591 }],
+    properties: {},
   },
 ];
 
 const mockSettings = {
-  login: params.has('login') ? params.get('login') : 'substanc1', autoAuth: false, savePassword: true, hasSavedSession: params.has('saved'),
-  lastProfile: null, quickAccounts: [], ram: 0, fullScreen: false, autoEnter: false, debugAllClients: true,
-  reduceEffects: params.has('noeffects'), customColors: {}, updatesDir: 'C:\\Users\\Player\\AppData\\Roaming\\CubeXCraft\\updates',
+  login: params.has('login') ? params.get('login') : 'substanc1',
+  autoAuth: false,
+  savePassword: true,
+  hasSavedSession: params.has('saved'),
+  lastProfile: null,
+  quickAccounts: [],
+  ram: 0,
+  fullScreen: false,
+  autoEnter: false,
+  debugAllClients: true,
+  reduceEffects: params.has('noeffects'),
+  customColors: {},
+  updatesDir: 'C:\\Users\\Player\\AppData\\Roaming\\CubeXCraft\\updates',
 };
 
 let mock2fa = null;
@@ -86,13 +105,26 @@ const mock = {
     if (!mockSettings.hasSavedSession) throw 'auth.invalidtoken';
     return { username: mockSettings.login, uuid: '71a23136-c7ab-3271-bfe9-93dbe3c8f781', skin: null };
   },
-  async auth_logout() { await sleep(200); },
-  async auth_remember() { return [{ login: 'substanc1', username: 'substanc1' }]; },
-  async updates_dir_pick() { return null; },
-  async updates_dir_change({ path }) { return path; },
+  async auth_logout() {
+    await sleep(200);
+  },
+  async auth_remember() {
+    return [{ login: 'substanc1', username: 'substanc1' }];
+  },
+  async updates_dir_pick() {
+    return null;
+  },
+  async updates_dir_change({ path }) {
+    return path;
+  },
   async open_path() {},
-  async self_update_check() { return null; },
-  async profiles_list() { await sleep(300); return mockProfiles; },
+  async self_update_check() {
+    return null;
+  },
+  async profiles_list() {
+    await sleep(300);
+    return mockProfiles;
+  },
   async server_ping({ host, port }) {
     await sleep(250 + Math.random() * 300);
     return port === 25565 ? { online: 3, max: 60 } : { online: 0, max: 20 };
@@ -101,9 +133,13 @@ const mock = {
   async window_minimize() {},
   async window_show() {},
   async timing_mark() {},
-  async window_close() { window.close(); },
+  async window_close() {
+    window.close();
+  },
   async window_drag() {},
-  async open_url({ url }) { window.open(url, '_blank'); },
+  async open_url({ url }) {
+    window.open(url, '_blank');
+  },
   // проверка вёрстки ленты в браузере: обложки — с сайта
   async news_get() {
     await sleep(300);
@@ -133,7 +169,9 @@ const mock = {
     }
     return { checked: 4210, downloaded: 3, removed: 12 };
   },
-  async avatar_get() { return null; },
+  async avatar_get() {
+    return null;
+  },
   async game_play({ uuid }) {
     const total = 296 * 1048576;
     for (let i = 0; i <= 20; i++) {
@@ -148,11 +186,19 @@ const mock = {
   async logs_open() {},
   async log_error() {},
   // друзья (только браузер): состояние в памяти, ответы как у сайта
-  async friends_get() { return mockFriends.snap(); },
-  async friends_action({ action, username, server }) { return mockFriends.act(action, username, server); },
-  async notes_action({ action, id }) { return mockFriends.notes(action, id); },
+  async friends_get() {
+    return mockFriends.snap();
+  },
+  async friends_action({ action, username, server }) {
+    return mockFriends.act(action, username, server);
+  },
+  async notes_action({ action, id }) {
+    return mockFriends.notes(action, id);
+  },
   async presence_set() {},
-  async game_kill() { emit('game-exit', { code: -1, killed: true }); },
+  async game_kill() {
+    emit('game-exit', { code: -1, killed: true });
+  },
 };
 
 const mockFriends = {
@@ -162,13 +208,18 @@ const mockFriends = {
     { username: 'nullbyte', uuid: '3', state: 'away', server: null, playingSec: null },
     { username: 'm0rf', uuid: '4', state: 'offline', server: null, playingSec: null },
   ],
-  requests: [{ username: 'ironwolf', uuid: '5', mutual: 2 }, { username: 'kate_tech', uuid: '6', mutual: 0 }],
+  requests: [
+    { username: 'ironwolf', uuid: '5', mutual: 2 },
+    { username: 'kate_tech', uuid: '6', mutual: 0 },
+  ],
   notifications: [
     { id: '3', kind: 'invite', actor: 'Minison434', server: 'CubeXTech', unread: true, agoSec: 180 },
     { id: '2', kind: 'accepted', actor: 'nullbyte', server: '', unread: true, agoSec: 60000 },
     { id: '1', kind: 'playing', actor: 'v_kirsanov', server: 'OneCube', unread: false, agoSec: 90000 },
   ],
-  snap() { return JSON.parse(JSON.stringify({ friends: this.friends, requests: this.requests, notifications: this.notifications })); },
+  snap() {
+    return JSON.parse(JSON.stringify({ friends: this.friends, requests: this.requests, notifications: this.notifications }));
+  },
   async act(action, username, server) {
     await sleep(150);
     const name = String(username || '').trim();

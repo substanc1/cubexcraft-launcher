@@ -58,11 +58,7 @@
     validation = null;
     busy = true;
     try {
-      const res = await processRequest(
-        t('overlay.processing.text.auth'),
-        savedOnly ? call('auth_restore', { login }) : call('auth_login', { login, password }),
-        { onError: () => {} },
-      );
+      const res = await processRequest(t('overlay.processing.text.auth'), savedOnly ? call('auth_restore', { login }) : call('auth_login', { login, password }), { onError: () => {} });
       // включено подтверждение входа в Telegram - ждём «✅ Это я» в боте
       const user = res && res.twofa ? await confirmTwoFa(res.twofa) : res;
       await onSuccessLogin(user, login, savedOnly);
@@ -142,13 +138,10 @@
 
       <div class="lg-content">
         <label class="lg-field lg-login">
-          <input type="text" bind:value={login} oninput={onLoginInput} onkeydown={keydown}
-                 placeholder={t('scenes.login.login')} spellcheck="false" autocomplete="off" />
+          <input type="text" bind:value={login} oninput={onLoginInput} onkeydown={keydown} placeholder={t('scenes.login.login')} spellcheck="false" autocomplete="off" />
         </label>
         <label class="lg-field lg-password">
-          <input type={reveal ? 'text' : 'password'} bind:value={password} onkeydown={keydown}
-                 placeholder={hasSaved ? t('scenes.login.password.saved') : t('scenes.login.password')}
-                 spellcheck="false" autocomplete="off" />
+          <input type={reveal ? 'text' : 'password'} bind:value={password} onkeydown={keydown} placeholder={hasSaved ? t('scenes.login.password.saved') : t('scenes.login.password')} spellcheck="false" autocomplete="off" />
           <button type="button" class="lg-revealToggle" class:selected={reveal} onclick={() => (reveal = !reveal)} data-no-drag>
             {reveal ? t('scenes.login.hidePassword') : t('scenes.login.showPassword')}
           </button>
@@ -171,8 +164,7 @@
       </CutButton>
 
       <div class="lg-registerPane">
-        <span class="lg-textLogin">{t('scenes.login.textLogin')}</span><button type="button" class="lg-createAccount"
-          onclick={() => call('open_url', { url: CREATE_ACCOUNT_URL })}>{t('scenes.login.createAccount')}</button>
+        <span class="lg-textLogin">{t('scenes.login.textLogin')}</span><button type="button" class="lg-createAccount" onclick={() => call('open_url', { url: CREATE_ACCOUNT_URL })}>{t('scenes.login.createAccount')}</button>
       </div>
 
       <button type="button" class="lg-secondaryButton">{t('scenes.login.discordChannel')}</button>

@@ -27,10 +27,7 @@
     settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
     power: '<path d="M12 3v9"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/>',
   };
-  const icon = id =>
-    '--icon:url("data:image/svg+xml,' +
-    encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + ICONS[id] + '</svg>') +
-    '")';
+  const icon = id => '--icon:url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + ICONS[id] + '</svg>') + '")';
 
   let nav = $state('servers');
   let navKey = $state('servers'); // плашка у лого: ключ, а текст — от языка (SCRUM-691)
@@ -183,12 +180,7 @@
     buildBusy = true;
     try {
       const st = await verifyBuild(selected);
-      if (st)
-        showApplyDialog(
-          t('scenes.servermenu.verifyDoneTitle'),
-          t('scenes.servermenu.verifyDone').replace('{n}', st.checked).replace('{m}', st.downloaded).replace('{k}', st.removed),
-          () => {},
-        );
+      if (st) showApplyDialog(t('scenes.servermenu.verifyDoneTitle'), t('scenes.servermenu.verifyDone').replace('{n}', st.checked).replace('{m}', st.downloaded).replace('{k}', st.removed), () => {});
       loadBuildInfo(uuid);
     } finally {
       buildBusy = false;
@@ -206,23 +198,19 @@
       errorHandle(e);
       return;
     }
-    showApplyDialog(
-      t('scenes.servermenu.deleteTitle'),
-      t('scenes.servermenu.deleteConfirm').replace('{name}', name(sel)).replace('{size}', fmtSize(info.bytes)),
-      async () => {
-        buildBusy = true;
-        try {
-          // keepUser: миры, скриншоты, настройки и карты остаются
-          const r = await processRequest(t('scenes.servermenu.deleting'), call('build_delete', { uuid, keepUser: true }));
-          notify(t('scenes.servermenu.deleteBuild'), t('scenes.servermenu.deleted').replace('{size}', fmtSize(r.removedBytes)));
-          loadBuildInfo(uuid);
-        } catch {
-          // processRequest уже показал ошибку (errorHandle + карточка)
-        } finally {
-          buildBusy = false;
-        }
-      },
-    );
+    showApplyDialog(t('scenes.servermenu.deleteTitle'), t('scenes.servermenu.deleteConfirm').replace('{name}', name(sel)).replace('{size}', fmtSize(info.bytes)), async () => {
+      buildBusy = true;
+      try {
+        // keepUser: миры, скриншоты, настройки и карты остаются
+        const r = await processRequest(t('scenes.servermenu.deleting'), call('build_delete', { uuid, keepUser: true }));
+        notify(t('scenes.servermenu.deleteBuild'), t('scenes.servermenu.deleted').replace('{size}', fmtSize(r.removedBytes)));
+        loadBuildInfo(uuid);
+      } catch {
+        // processRequest уже показал ошибку (errorHandle + карточка)
+      } finally {
+        buildBusy = false;
+      }
+    });
   }
 
   onMount(() => {
@@ -360,93 +348,93 @@
             {/each}
           </div>
         {:else}
-        {#if selected}
-          <div class="sm-hero sm-panel">
-            <div class="sm-heroTagRow">
-              <span class="sm-tag">{t('scenes.servermenu.heroTag')}</span>
-              {#if prop(selected, 'wipeDate')}
-                <span class="sm-badgeWipe">{t('scenes.servermenu.wipe')} {prop(selected, 'wipeDate')}</span>
+          {#if selected}
+            <div class="sm-hero sm-panel">
+              <div class="sm-heroTagRow">
+                <span class="sm-tag">{t('scenes.servermenu.heroTag')}</span>
+                {#if prop(selected, 'wipeDate')}
+                  <span class="sm-badgeWipe">{t('scenes.servermenu.wipe')} {prop(selected, 'wipeDate')}</span>
+                {/if}
+              </div>
+              <div class="sm-heroName">{name(selected)}</div>
+              <div class="sm-heroChips">
+                <span class="sm-heroChip">{selected.version}</span>
+                {#if prop(selected, 'mode')}<span class="sm-heroChip">{prop(selected, 'mode')}</span>{/if}
+              </div>
+              <div class="sm-heroDesc"><span>{selected.info || ''}</span></div>
+              <div class="sm-onlineBox">
+                <div class="sm-onlineRow">
+                  <span class="sm-onlineValue">{selPing ? selPing.online : '—'}</span>
+                  <span class="sm-onlineMax">{selPing ? '/ ' + selPing.max : ''}</span>
+                </div>
+                <div class="sm-onlineCaption">{t('scenes.servermenu.onlineCaption')}</div>
+                <div class="sm-loadTrack">
+                  <div class="sm-loadFill" style="width:{selPing && selPing.max > 0 ? 200 * Math.min(1, selPing.online / selPing.max) : 0}px"></div>
+                </div>
+              </div>
+              <div class="sm-buildRow">
+                <button type="button" class="sm-filterChip sm-buildBtn" disabled={buildBusy} onclick={doVerify} data-no-drag>{t('scenes.servermenu.verify')}</button>
+                <button type="button" class="sm-filterChip sm-buildBtn" disabled={buildBusy || (buildInfo && !buildInfo.exists)} onclick={doDelete} data-no-drag>{t('scenes.servermenu.deleteBuild')}</button>
+              </div>
+            </div>
+          {/if}
+
+          <div class="sm-gridSection">
+            <div class="sm-gridHead">
+              <span class="sm-tag">{t('scenes.servermenu.gridTag')}</span>
+              <span class="sm-grow"></span>
+              {#if categories.length}
+                <div class="sm-filters">
+                  <button type="button" class="sm-filterChip" class:active={filter === 'ALL'} onclick={() => (filter = 'ALL')}>{t('scenes.servermenu.filterAll')}</button>
+                  {#each categories as c}
+                    <button type="button" class="sm-filterChip" class:active={filter === c} onclick={() => (filter = c)}>{c}</button>
+                  {/each}
+                </div>
               {/if}
             </div>
-            <div class="sm-heroName">{name(selected)}</div>
-            <div class="sm-heroChips">
-              <span class="sm-heroChip">{selected.version}</span>
-              {#if prop(selected, 'mode')}<span class="sm-heroChip">{prop(selected, 'mode')}</span>{/if}
-            </div>
-            <div class="sm-heroDesc"><span>{selected.info || ''}</span></div>
-            <div class="sm-onlineBox">
-              <div class="sm-onlineRow">
-                <span class="sm-onlineValue">{selPing ? selPing.online : '—'}</span>
-                <span class="sm-onlineMax">{selPing ? '/ ' + selPing.max : ''}</span>
-              </div>
-              <div class="sm-onlineCaption">{t('scenes.servermenu.onlineCaption')}</div>
-              <div class="sm-loadTrack">
-                <div class="sm-loadFill" style="width:{selPing && selPing.max > 0 ? 200 * Math.min(1, selPing.online / selPing.max) : 0}px"></div>
-              </div>
-            </div>
-            <div class="sm-buildRow">
-              <button type="button" class="sm-filterChip sm-buildBtn" disabled={buildBusy} onclick={doVerify} data-no-drag>{t('scenes.servermenu.verify')}</button>
-              <button type="button" class="sm-filterChip sm-buildBtn" disabled={buildBusy || (buildInfo && !buildInfo.exists)} onclick={doDelete} data-no-drag>{t('scenes.servermenu.deleteBuild')}</button>
-            </div>
-          </div>
-        {/if}
-
-        <div class="sm-gridSection">
-          <div class="sm-gridHead">
-            <span class="sm-tag">{t('scenes.servermenu.gridTag')}</span>
-            <span class="sm-grow"></span>
-            {#if categories.length}
-              <div class="sm-filters">
-                <button type="button" class="sm-filterChip" class:active={filter === 'ALL'} onclick={() => (filter = 'ALL')}>{t('scenes.servermenu.filterAll')}</button>
-                {#each categories as c}
-                  <button type="button" class="sm-filterChip" class:active={filter === c} onclick={() => (filter = c)}>{c}</button>
-                {/each}
-              </div>
-            {/if}
-          </div>
-          <div class="sm-grid">
-            {#each filtered as p (p.uuid)}
-              {@const sel = selected && p.uuid === selected.uuid}
-              {@const m = maint(p)}
-              {@const pg = pings[p.uuid]}
-              <button type="button" class="sm-card" class:active={sel} class:maintenance={m} onclick={() => selectProfile(p)} data-no-drag>
-                <span class="sm-cardRail" class:active={sel} class:maintenance={m && !sel}></span>
-                <span class="sm-cardContent">
-                  <span class="sm-cardTop">
-                    <span class="sm-cardName">{name(p)}</span>
-                    <span class="sm-dot" class:maint={m}></span>
+            <div class="sm-grid">
+              {#each filtered as p (p.uuid)}
+                {@const sel = selected && p.uuid === selected.uuid}
+                {@const m = maint(p)}
+                {@const pg = pings[p.uuid]}
+                <button type="button" class="sm-card" class:active={sel} class:maintenance={m} onclick={() => selectProfile(p)} data-no-drag>
+                  <span class="sm-cardRail" class:active={sel} class:maintenance={m && !sel}></span>
+                  <span class="sm-cardContent">
+                    <span class="sm-cardTop">
+                      <span class="sm-cardName">{name(p)}</span>
+                      <span class="sm-dot" class:maint={m}></span>
+                    </span>
+                    <span class="sm-cardMeta">{p.version}{prop(p, 'mode') ? ' · ' + prop(p, 'mode') : ''}</span>
+                    <span class="sm-cardTrack">
+                      <span class="sm-cardFill" class:active={sel} style="width:{pg && pg.max > 0 && !m ? 100 * Math.min(1, pg.online / pg.max) : 0}%"></span>
+                    </span>
+                    <span class="sm-cardBottom">
+                      <span class="sm-cardOnline">{m ? t('scenes.servermenu.unavailable') : pg ? pg.online + '/' + pg.max : '?'}</span>
+                      <span class="sm-grow"></span>
+                      <span class="sm-cardTag" class:active={sel}>{(prop(p, 'category') || '').toUpperCase()}</span>
+                    </span>
                   </span>
-                  <span class="sm-cardMeta">{p.version}{prop(p, 'mode') ? ' · ' + prop(p, 'mode') : ''}</span>
-                  <span class="sm-cardTrack">
-                    <span class="sm-cardFill" class:active={sel} style="width:{pg && pg.max > 0 && !m ? 100 * Math.min(1, pg.online / pg.max) : 0}%"></span>
-                  </span>
-                  <span class="sm-cardBottom">
-                    <span class="sm-cardOnline">{m ? t('scenes.servermenu.unavailable') : pg ? pg.online + '/' + pg.max : '?'}</span>
-                    <span class="sm-grow"></span>
-                    <span class="sm-cardTag" class:active={sel}>{(prop(p, 'category') || '').toUpperCase()}</span>
-                  </span>
-                </span>
-              </button>
-            {/each}
-          </div>
-        </div>
-
-        {#if selected && mods.length}
-          <div class="sm-mods sm-panel">
-            <div class="sm-modsHead">
-              <span class="sm-tag">{t('scenes.servermenu.modsTag')}</span>
-              <span class="sm-modsCount">{mods.length} {t('scenes.servermenu.mods')}</span>
-            </div>
-            <div class="sm-modsList">
-              {#each shownMods as mod}<span class="sm-modChip">{mod}</span>{/each}
-              {#if mods.length > MODS_COLLAPSED_LIMIT}
-                <button type="button" class="sm-modChip sm-modToggle" onclick={() => (modsExpanded = !modsExpanded)}>
-                  {modsExpanded ? t('scenes.servermenu.modsCollapse') : t('scenes.servermenu.modsExpand')}
                 </button>
-              {/if}
+              {/each}
             </div>
           </div>
-        {/if}
+
+          {#if selected && mods.length}
+            <div class="sm-mods sm-panel">
+              <div class="sm-modsHead">
+                <span class="sm-tag">{t('scenes.servermenu.modsTag')}</span>
+                <span class="sm-modsCount">{mods.length} {t('scenes.servermenu.mods')}</span>
+              </div>
+              <div class="sm-modsList">
+                {#each shownMods as mod}<span class="sm-modChip">{mod}</span>{/each}
+                {#if mods.length > MODS_COLLAPSED_LIMIT}
+                  <button type="button" class="sm-modChip sm-modToggle" onclick={() => (modsExpanded = !modsExpanded)}>
+                    {modsExpanded ? t('scenes.servermenu.modsCollapse') : t('scenes.servermenu.modsExpand')}
+                  </button>
+                {/if}
+              </div>
+            </div>
+          {/if}
         {/if}
       </div>
     </div>
@@ -462,19 +450,19 @@
             </button>
           {/if}
           {#if nav !== 'news'}
-          <span class="sm-tag">{t('scenes.servermenu.feedTag')}</span>
-          {#each news.slice(0, 6) as n (n.id)}
-            <button type="button" class="sm-news" onclick={() => openArticle(n.id)} data-no-drag>
-              {#if n.cover}<img class="sm-newsCover" src={n.cover} alt="" />{/if}
-              <span class="sm-newsText">
-                <span class="sm-newsDate">{newsDate(n.date)}</span>
-                <span class="sm-newsTitle">{n.title}</span>
-                <span class="sm-newsBody">{n.body}</span>
-              </span>
-            </button>
-          {:else}
-            <span class="sm-emptyState">{newsState === 'loading' ? '…' : newsState === 'error' ? t('scenes.servermenu.newsError') : t('scenes.servermenu.newsEmpty')}</span>
-          {/each}
+            <span class="sm-tag">{t('scenes.servermenu.feedTag')}</span>
+            {#each news.slice(0, 6) as n (n.id)}
+              <button type="button" class="sm-news" onclick={() => openArticle(n.id)} data-no-drag>
+                {#if n.cover}<img class="sm-newsCover" src={n.cover} alt="" />{/if}
+                <span class="sm-newsText">
+                  <span class="sm-newsDate">{newsDate(n.date)}</span>
+                  <span class="sm-newsTitle">{n.title}</span>
+                  <span class="sm-newsBody">{n.body}</span>
+                </span>
+              </button>
+            {:else}
+              <span class="sm-emptyState">{newsState === 'loading' ? '…' : newsState === 'error' ? t('scenes.servermenu.newsError') : t('scenes.servermenu.newsEmpty')}</span>
+            {/each}
           {/if}
         </div>
         <div class="sm-sideSection sm-friendsSection" bind:this={friendsSection}>
@@ -511,8 +499,7 @@
         {/if}
       </div>
     </div>
-    <CutButton class="sm-play" variant={disabled ? 'disabled' : 'play'} shape="M0,0 L168,0 L180,12 L180,44 L12,44 L0,32 Z" viewBox="0 0 180 44"
-               disabled={disabled} onclick={() => selected && play(selected)}>
+    <CutButton class="sm-play" variant={disabled ? 'disabled' : 'play'} shape="M0,0 L168,0 L180,12 L180,44 L12,44 L0,32 Z" viewBox="0 0 180 44" {disabled} onclick={() => selected && play(selected)}>
       {t('scenes.servermenu.play')}
     </CutButton>
   </div>

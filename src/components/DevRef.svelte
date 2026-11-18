@@ -17,8 +17,28 @@
 {/if}
 
 <style>
-  .ref { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 9999; }
-  .ref.diff { mix-blend-mode: difference; }
-  .ref.half { opacity: 0.5; }
-  .badge { position: fixed; right: 4px; bottom: 4px; z-index: 10000; font: 10px monospace; color: #0f0; background: #000a; padding: 2px 4px; pointer-events: none; }
+  .ref {
+    position: fixed;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+    z-index: 9999;
+  }
+  .ref.diff {
+    mix-blend-mode: difference;
+  }
+  .ref.half {
+    opacity: 0.5;
+  }
+  .badge {
+    position: fixed;
+    right: 4px;
+    bottom: 4px;
+    z-index: 10000;
+    font: 10px monospace;
+    color: #0f0;
+    background: #000a;
+    padding: 2px 4px;
+    pointer-events: none;
+  }
 </style>

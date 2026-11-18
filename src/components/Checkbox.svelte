@@ -19,18 +19,37 @@
 </label>
 
 <style>
-  .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+  .check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
   .box {
-    width: 22px; height: 22px; flex: none; padding: 4px;
-    display: grid; place-items: center;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    padding: 4px;
+    display: grid;
+    place-items: center;
     background: var(--panel-flat);
     border: 1px solid var(--border-dark);
   }
-  .on .box { border-color: var(--red); }
-  .mark { width: 12px; height: 12px; fill: var(--red); }
-  .text {
-    font-family: 'JetBrains Mono'; font-size: 12px;
-    color: var(--text-secondary); white-space: nowrap;
+  .on .box {
+    border-color: var(--red);
   }
-  .on .text { color: var(--header-hover); }
+  .mark {
+    width: 12px;
+    height: 12px;
+    fill: var(--red);
+  }
+  .text {
+    font-family: 'JetBrains Mono';
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .on .text {
+    color: var(--header-hover);
+  }
 </style>

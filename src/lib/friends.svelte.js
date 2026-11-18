@@ -70,13 +70,14 @@ export function closeFriends() {
 }
 
 function refreshFriends() {
-  return call('friends_get').then(apply).catch(() => {});
+  return call('friends_get')
+    .then(apply)
+    .catch(() => {});
 }
 
 const actFriend = (action, username, extra = {}) => call('friends_action', { action, username, server: null, ...extra });
 
-export const sendRequest = name =>
-  act(actFriend('request', name), v => fmt(t(v.result === 'friends' ? 'friends.tFriends' : 'friends.tSent'), { n: v.username }));
+export const sendRequest = name => act(actFriend('request', name), v => fmt(t(v.result === 'friends' ? 'friends.tFriends' : 'friends.tSent'), { n: v.username }));
 export const acceptRequest = name => act(actFriend('accept', name), v => fmt(t('friends.tFriends'), { n: v.username }));
 export const declineRequest = name => act(actFriend('decline', name), v => fmt(t('friends.tDeclined'), { n: v.username }));
 export const removeFriend = name => act(actFriend('remove', name), v => fmt(t('friends.tRemoved'), { n: v.username }));
@@ -136,10 +137,14 @@ function pushUi() {
 export async function initFriends() {
   await on('friends-update', apply);
   for (const ev of ['mousemove', 'mousedown', 'keydown', 'wheel']) {
-    window.addEventListener(ev, () => {
-      lastInput = Date.now();
-      if (sentUi === 'away') pushUi();
-    }, { passive: true });
+    window.addEventListener(
+      ev,
+      () => {
+        lastInput = Date.now();
+        if (sentUi === 'away') pushUi();
+      },
+      { passive: true },
+    );
   }
   document.addEventListener('visibilitychange', pushUi);
   setInterval(pushUi, 15000);

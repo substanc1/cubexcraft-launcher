@@ -58,7 +58,12 @@ for (const c of CODES) {
     else if (v.trim() === '' && !EMPTY_OK.has(k)) errors.push(`[${c}] пустое значение: ${k}`);
   }
 }
-info.push(`ключей: ru=${ruKeys.length}, ` + CODES.filter(c => c !== 'ru').map(c => `${c}=${Object.keys(dicts[c]).length}`).join(', '));
+info.push(
+  `ключей: ru=${ruKeys.length}, ` +
+    CODES.filter(c => c !== 'ru')
+      .map(c => `${c}=${Object.keys(dicts[c]).length}`)
+      .join(', '),
+);
 info.push(`пустых значений-исключений: ${EMPTY_OK.size} (см. EMPTY_OK)`);
 
 // 3: плейсхолдеры
@@ -110,7 +115,11 @@ for (const abs of files) {
     codeLines++;
     const src = orig[i].trim();
     const rule = ALLOW.find(a => a.file === rel && src.includes(a.match));
-    if (rule) { allowed++; used.add(rule); return; }
+    if (rule) {
+      allowed++;
+      used.add(rule);
+      return;
+    }
     errors.push(`${rel}:${i + 1}: кириллица вне словаря: ${src.slice(0, 160)}`);
   });
 }

@@ -66,29 +66,85 @@
 {/if}
 
 <style>
-  .aa-wrap { position: absolute; inset: 0; z-index: 44; display: grid; place-items: center; }
+  .aa-wrap {
+    position: absolute;
+    inset: 0;
+    z-index: 44;
+    display: grid;
+    place-items: center;
+  }
   .aa-dialog {
-    width: 380px; padding: 14px; display: flex; flex-direction: column; gap: 14px;
-    background: var(--panel); border: 1px solid var(--border-dark); box-shadow: var(--dropshadow);
+    width: 380px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: var(--panel);
+    border: 1px solid var(--border-dark);
+    box-shadow: var(--dropshadow);
   }
-  .aa-head { position: relative; height: 32px; }
+  .aa-head {
+    position: relative;
+    height: 32px;
+  }
   .aa-heading {
-    position: absolute; left: 34px; right: 34px; top: 0; height: 32px; display: grid; place-items: center;
-    font-family: 'Unbounded SemiBold'; font-size: 16px; line-height: 19.84px; color: var(--text-hover); white-space: nowrap;
+    position: absolute;
+    left: 34px;
+    right: 34px;
+    top: 0;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    font-family: 'Unbounded SemiBold';
+    font-size: 16px;
+    line-height: 19.84px;
+    color: var(--text-hover);
+    white-space: nowrap;
   }
-  .aa-close { position: absolute; right: 0; top: 0; }
-  .aa-body { display: flex; flex-direction: column; gap: 10px; }
+  .aa-close {
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+  .aa-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
   /* .dialog .text-field */
   .aa-field {
-    height: 46px; padding: 10px 12px; background: var(--panel-flat); border: 1px solid var(--border-dark);
-    color: var(--text-hover); font-family: 'Manrope'; font-size: 13px;
+    height: 46px;
+    padding: 10px 12px;
+    background: var(--panel-flat);
+    border: 1px solid var(--border-dark);
+    color: var(--text-hover);
+    font-family: 'Manrope';
+    font-size: 13px;
   }
-  .aa-field::placeholder { color: var(--text-secondary); opacity: 1; }
-  .aa-field:focus { border-color: var(--green); }
-  .aa-error { width: 350px; color: var(--red); font-family: 'Manrope'; font-size: 12px; line-height: 16.39px; }
+  .aa-field::placeholder {
+    color: var(--text-secondary);
+    opacity: 1;
+  }
+  .aa-field:focus {
+    border-color: var(--green);
+  }
+  .aa-error {
+    width: 350px;
+    color: var(--red);
+    font-family: 'Manrope';
+    font-size: 12px;
+    line-height: 16.39px;
+  }
   .aa-submit {
-    height: 42px; background: transparent; border: 1px solid var(--green); color: var(--green);
-    font-family: 'JetBrains Mono Bold'; font-size: 11px; line-height: 14.52px;
+    height: 42px;
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: 'JetBrains Mono Bold';
+    font-size: 11px;
+    line-height: 14.52px;
   }
-  .aa-submit:hover { background: var(--greenTr); }
+  .aa-submit:hover {
+    background: var(--greenTr);
+  }
 </style>

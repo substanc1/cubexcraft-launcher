@@ -15,7 +15,8 @@ export function fxscroll(node, opts) {
   host.appendChild(track);
 
   function layout() {
-    const visible = node.clientHeight, total = node.scrollHeight;
+    const visible = node.clientHeight,
+      total = node.scrollHeight;
     if (total <= visible + 1) {
       track.style.display = 'none';
       return;
@@ -41,7 +42,8 @@ export function fxscroll(node, opts) {
   });
   const move = e => {
     if (!drag) return;
-    const len = track.clientHeight, th = thumb.offsetHeight;
+    const len = track.clientHeight,
+      th = thumb.offsetHeight;
     const k = (node.scrollHeight - node.clientHeight) / Math.max(1, len - th);
     node.scrollTop = drag.top + (e.clientY - drag.y) * k;
   };
