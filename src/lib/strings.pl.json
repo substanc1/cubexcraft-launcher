@@ -21,7 +21,7 @@
  "scenes.login.footerNet": "SIEĆ: OK",
  "scenes.login.footerCopyright": "© 2026 CUBEXCRAFT NETWORK",
  "scenes.login.serverStatusOnline": "POŁĄCZONO",
- "scenes.login.serverStatusTooltip": "Połączono z LaunchServer",
+ "scenes.login.serverStatusTooltip": "Połączono z serwerem",
  "scenes.login.showPassword": "POKAŻ",
  "scenes.login.hidePassword": "UKRYJ",
  "scenes.login.fillFields": "WYPEŁNIJ LOGIN I HASŁO",
