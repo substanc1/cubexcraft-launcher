@@ -75,7 +75,7 @@ export async function processRequest(text, promise, { onError, until, onCancel }
     if (onError) onError(e);
     else errorHandle(e);
     const shown = typeof e === 'string' ? e : String(e && (e.message || e));
-    app.processing = { visible: true, text: shown, error: true, until: null, onCancel: null };
+    app.processing = { visible: true, text: requestError(shown), error: true, until: null, onCancel: null };
     await new Promise(r => setTimeout(r, 1500));
     if (--processingUse === 0) hideProcessing();
     throw e;

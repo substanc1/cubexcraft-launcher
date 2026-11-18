@@ -75,7 +75,7 @@ const mock = {
     const st = mock2fa;
     for (let i = 0; i < 50 && !st.cancelled; i++) await sleep(100);
     if (st.cancelled) throw '2fa.cancelled';
-    if (st.deny) throw 'Вход отклонён в Telegram';
+    if (st.deny) throw 'twofa.denied';
     return { username: st.login || 'Player', uuid: '71a23136-c7ab-3271-bfe9-93dbe3c8f781', skin: null };
   },
   async auth_2fa_cancel() {
@@ -173,7 +173,7 @@ const mockFriends = {
     await sleep(150);
     const name = String(username || '').trim();
     if (action === 'request') {
-      if (name.toLowerCase() === 'nobody') throw 'Игрок не найден';
+      if (name.toLowerCase() === 'nobody') throw 'friends.notFound';
       return { result: 'sent', username: name, ...this.snap() };
     }
     if (action === 'accept') {

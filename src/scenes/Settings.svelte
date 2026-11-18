@@ -117,13 +117,13 @@
           <span class="st-h">{t('scenes.settings.header.ram')}</span>
           <div class="st-ramRow">
             {#each RAM as gb}
-              <button type="button" class="st-ram" style="width:{ramWidth(gb + ' ГБ')}px" class:selected={ram === gb * 1024} onclick={() => setRam(gb)}>{gb} ГБ</button>
+              <button type="button" class="st-ram" style="width:{ramWidth(gb + ' ' + t('scenes.settings.unit.gb'))}px" class:selected={ram === gb * 1024} onclick={() => setRam(gb)}>{gb} {t('scenes.settings.unit.gb')}</button>
             {/each}
             <button type="button" class="st-ram" style="width:{ramWidth(t('scenes.settings.ramAuto'))}px" class:selected={ram === 0} onclick={() => setRam(0)}>{t('scenes.settings.ramAuto')}</button>
           </div>
         {/if}
 
-        <span class="st-h">{t('scenes.settings.header.colors', 'Цвета интерфейса')}</span>
+        <span class="st-h">{t('scenes.settings.header.colors')}</span>
         {#each COLORS as [key, fit]}
           {@const value = (s.customColors && s.customColors[key]) || DEFAULTS[key]}
           <div class="st-row">
@@ -150,7 +150,7 @@
           </div>
         {/each}
         <div class="st-row">
-          <button type="button" class="st-action" onclick={resetColors}>{t('scenes.settings.properties.resetcolors.name', 'Сбросить цвета')}</button>
+          <button type="button" class="st-action" onclick={resetColors}>{t('scenes.settings.properties.resetcolors.name')}</button>
         </div>
       </div>
 

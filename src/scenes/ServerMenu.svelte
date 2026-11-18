@@ -4,7 +4,7 @@
   import { onMount, tick } from 'svelte';
   import { app, t, switchScene, processRequest, showApplyDialog, saveSettings, startDrag, errorHandle, notify } from '../lib/app.svelte.js';
   import { call } from '../lib/backend.js';
-  import { i18n, LOCALES } from '../lib/i18n.svelte.js';
+  import { i18n, LOCALES, dateLocale } from '../lib/i18n.svelte.js';
   import { play, verifyBuild } from '../lib/play.js';
   import IconButton from '../components/IconButton.svelte';
   import CutButton from '../components/CutButton.svelte';
@@ -61,7 +61,7 @@
       return !q || (n.title + ' ' + n.body).toLowerCase().includes(q);
     }),
   );
-  const hhmm = ms => new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const hhmm = ms => new Date(ms).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
   function markNewsSeen() {
     if (!app.settings || !news.length) return;
     const m = maxNewsId();
@@ -97,7 +97,7 @@
   }
   const newsDate = d => {
     const x = new Date(d);
-    return isNaN(x) ? '' : x.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return isNaN(x) ? '' : x.toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
   const friendsOnline = $derived(friends.friends.filter(f => f.state !== 'offline').length);
 
@@ -489,7 +489,7 @@
         {#if selected}
           <span class="sm-dockChip">{selected.version}</span>
           <span class="sm-dockChip">Java {app.javaVersion}</span>
-          <button type="button" class="sm-dockChip sm-dockConsole" onclick={openConsole}>{t('scenes.servermenu.consoleChip', 'КОНСОЛЬ')}</button>
+          <button type="button" class="sm-dockChip sm-dockConsole" onclick={openConsole}>{t('scenes.servermenu.consoleChip')}</button>
         {/if}
       </div>
     </div>
