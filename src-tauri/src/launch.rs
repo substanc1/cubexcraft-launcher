@@ -48,19 +48,35 @@ pub fn total_ram_mb() -> Option<u64> {
     #[cfg(target_os = "linux")]
     {
         let s = std::fs::read_to_string("/proc/meminfo").ok()?;
-        let kb: u64 = s.lines().find(|l| l.starts_with("MemTotal:"))?.split_whitespace().nth(1)?.parse().ok()?;
+        let kb: u64 = s
+            .lines()
+            .find(|l| l.starts_with("MemTotal:"))?
+            .split_whitespace()
+            .nth(1)?
+            .parse()
+            .ok()?;
         Some(kb / 1024)
     }
     #[cfg(target_os = "macos")]
     {
-        let out = std::process::Command::new("sysctl").args(["-n", "hw.memsize"]).output().ok()?;
+        let out = std::process::Command::new("sysctl")
+            .args(["-n", "hw.memsize"])
+            .output()
+            .ok()?;
         let bytes: u64 = String::from_utf8_lossy(&out.stdout).trim().parse().ok()?;
         Some(bytes / 1048576)
     }
 }
 
 fn strs(v: &Value, k: &str) -> Vec<String> {
-    v.get(k).and_then(|x| x.as_array()).map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect()).unwrap_or_default()
+    v.get(k)
+        .and_then(|x| x.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|s| s.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn sep() -> &'static str {
@@ -72,7 +88,9 @@ fn sep() -> &'static str {
 }
 
 fn subst(s: &str, version: &str) -> String {
-    s.replace("${version_name}", version).replace("${library_directory}", "libraries").replace("${classpath_separator}", sep())
+    s.replace("${version_name}", version)
+        .replace("${library_directory}", "libraries")
+        .replace("${classpath_separator}", sep())
 }
 
 /// "@cxl/libs/x.jar" -> абсолютный путь к своим библиотекам лаунчера, остальное - относительно папки клиента
@@ -87,9 +105,24 @@ fn resolve(p: &str, cxl_libs: &Path) -> String {
 /// os-триггер optional-действий профиля (MacOSArgs: -XstartOnFirstThread только на macOS)
 fn optional_jvm_args(profile: &Value) -> Vec<String> {
     let mut out = Vec::new();
-    let my_os = if cfg!(windows) { "MUSTDIE" } else if cfg!(target_os = "macos") { "MACOSX" } else { "LINUX" };
-    for opt in profile.get("updateOptional").and_then(|v| v.as_array()).into_iter().flatten() {
-        let triggers = opt.get("triggersList").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let my_os = if cfg!(windows) {
+        "MUSTDIE"
+    } else if cfg!(target_os = "macos") {
+        "MACOSX"
+    } else {
+        "LINUX"
+    };
+    for opt in profile
+        .get("updateOptional")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+    {
+        let triggers = opt
+            .get("triggersList")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
         let os_ok = triggers.iter().all(|t| {
             if t.get("type").and_then(|v| v.as_str()) != Some("os") {
                 return true;
@@ -101,7 +134,12 @@ fn optional_jvm_args(profile: &Value) -> Vec<String> {
         if !os_ok || triggers.is_empty() {
             continue;
         }
-        for a in opt.get("actions").and_then(|v| v.as_array()).into_iter().flatten() {
+        for a in opt
+            .get("actions")
+            .and_then(|v| v.as_array())
+            .into_iter()
+            .flatten()
+        {
             if a.get("type").and_then(|v| v.as_str()) == Some("jvmArgs") {
                 out.extend(strs(a, "args"));
             }
@@ -112,7 +150,11 @@ fn optional_jvm_args(profile: &Value) -> Vec<String> {
 
 pub fn build_args(p: &LaunchParams) -> Vec<String> {
     let prof = p.profile;
-    let version = prof.get("version").and_then(|v| v.as_str()).unwrap_or("1.21.1").to_string();
+    let version = prof
+        .get("version")
+        .and_then(|v| v.as_str())
+        .unwrap_or("1.21.1")
+        .to_string();
     let mut args: Vec<String> = Vec::new();
     for a in strs(prof, "jvmArgs") {
         args.push(subst(&a, &version));
@@ -121,7 +163,11 @@ pub fn build_args(p: &LaunchParams) -> Vec<String> {
     // память: «АВТО» - лаунчер подбирает объём по ОЗУ компьютера (раньше JVM сама брала 1/4 ОЗУ: на 8 ГБ это 2 ГБ,
     // сборке с GregTech мало - загрузка шла с постоянной сборкой мусора). Стартовая куча сразу половина от
     // максимума (до 4 ГБ) и молодое поколение G1 шире - при загрузке модов меньше сборок мусора и расширений кучи.
-    let xmx = if p.ram_mb > 0 { p.ram_mb } else { auto_ram_mb() };
+    let xmx = if p.ram_mb > 0 {
+        p.ram_mb
+    } else {
+        auto_ram_mb()
+    };
     args.push(format!("-Xmx{xmx}M"));
     args.push(format!("-Xms{}M", (xmx / 2).clamp(1024, 4096).min(xmx)));
     args.extend(
@@ -140,7 +186,11 @@ pub fn build_args(p: &LaunchParams) -> Vec<String> {
         ]
         .map(String::from),
     );
-    let natives = p.client_dir.join("natives").join(paths::natives_os()).join(paths::game_arch());
+    let natives = p
+        .client_dir
+        .join("natives")
+        .join(paths::natives_os())
+        .join(paths::game_arch());
     args.push(format!("-Djava.library.path={}", natives.to_string_lossy()));
     // через ретранслятор РФ: резолвер cxc-relay.jar (в -cp ниже) отдаёт наши имена на ретранслятор — «Играть» в меню,
     // вход и скины идут через него без правок модов; остальные имена — как обычно
@@ -154,14 +204,24 @@ pub fn build_args(p: &LaunchParams) -> Vec<String> {
     let module_path = strs(&mc, "modulePath");
     if !module_path.is_empty() {
         args.push("-p".into());
-        args.push(module_path.iter().map(|m| resolve(m, &p.cxl_libs)).collect::<Vec<_>>().join(sep()));
+        args.push(
+            module_path
+                .iter()
+                .map(|m| resolve(m, &p.cxl_libs))
+                .collect::<Vec<_>>()
+                .join(sep()),
+        );
     }
     let modules = strs(&mc, "modules");
     if !modules.is_empty() {
         args.push("--add-modules".into());
         args.push(modules.join(","));
     }
-    for (flag, key) in [("--add-exports", "exports"), ("--add-opens", "opens"), ("--add-reads", "reads")] {
+    for (flag, key) in [
+        ("--add-exports", "exports"),
+        ("--add-opens", "opens"),
+        ("--add-reads", "reads"),
+    ] {
         if let Some(m) = mc.get(key).and_then(|v| v.as_object()) {
             for (k, v) in m {
                 if let Some(v) = v.as_str() {
@@ -177,7 +237,11 @@ pub fn build_args(p: &LaunchParams) -> Vec<String> {
         .filter(|c| !module_path.contains(c))
         .map(|c| resolve(&c, &p.cxl_libs))
         .collect();
-    cp.extend(strs(prof, "altClassPath").into_iter().map(|c| resolve(&c, &p.cxl_libs)));
+    cp.extend(
+        strs(prof, "altClassPath")
+            .into_iter()
+            .map(|c| resolve(&c, &p.cxl_libs)),
+    );
     if relay {
         cp.push(relay_jar.to_string_lossy().to_string());
     }
@@ -187,27 +251,59 @@ pub fn build_args(p: &LaunchParams) -> Vec<String> {
     cp.retain(|c| seen.insert(c.to_lowercase()));
     args.push("-cp".into());
     args.push(cp.join(sep()));
-    args.push(prof.get("mainClass").and_then(|v| v.as_str()).unwrap_or("cpw.mods.bootstraplauncher.BootstrapLauncher").to_string());
+    args.push(
+        prof.get("mainClass")
+            .and_then(|v| v.as_str())
+            .unwrap_or("cpw.mods.bootstraplauncher.BootstrapLauncher")
+            .to_string(),
+    );
 
     // ClientParams.addModernClientArgs
     let client = p.client_dir.to_string_lossy().to_string();
     args.extend([
-        "--username".into(), p.username.clone(),
-        "--uuid".into(), p.uuid.replace('-', ""),
-        "--accessToken".into(), p.access_token.clone(),
-        "--userType".into(), "mojang".into(),
-        "--userProperties".into(), "{}".into(),
-        "--assetIndex".into(), prof.get("assetIndex").and_then(|v| v.as_str()).unwrap_or(&version).to_string(),
-        "--version".into(), version.clone(),
-        "--gameDir".into(), client.clone(),
-        "--assetsDir".into(), p.assets_dir.to_string_lossy().to_string(),
-        "--resourcePackDir".into(), p.client_dir.join("resourcepacks").to_string_lossy().to_string(),
-        "--versionType".into(), "CubeXCraft".into(),
+        "--username".into(),
+        p.username.clone(),
+        "--uuid".into(),
+        p.uuid.replace('-', ""),
+        "--accessToken".into(),
+        p.access_token.clone(),
+        "--userType".into(),
+        "mojang".into(),
+        "--userProperties".into(),
+        "{}".into(),
+        "--assetIndex".into(),
+        prof.get("assetIndex")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&version)
+            .to_string(),
+        "--version".into(),
+        version.clone(),
+        "--gameDir".into(),
+        client.clone(),
+        "--assetsDir".into(),
+        p.assets_dir.to_string_lossy().to_string(),
+        "--resourcePackDir".into(),
+        p.client_dir
+            .join("resourcepacks")
+            .to_string_lossy()
+            .to_string(),
+        "--versionType".into(),
+        "CubeXCraft".into(),
     ]);
     if p.auto_enter {
-        if let Some(s) = prof.get("servers").and_then(|v| v.as_array()).and_then(|a| a.first()) {
-            let host = s.get("serverAddress").and_then(|v| v.as_str()).unwrap_or("");
-            let port = s.get("serverPort").and_then(|v| v.as_u64()).unwrap_or(25565);
+        if let Some(s) = prof
+            .get("servers")
+            .and_then(|v| v.as_array())
+            .and_then(|a| a.first())
+        {
+            let host = s
+                .get("serverAddress")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let port = s
+                .get("serverPort")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(25565);
             args.push("--quickPlayMultiplayer".into());
             args.push(format!("{host}:{port}"));
         }
@@ -228,7 +324,12 @@ pub fn build_args(p: &LaunchParams) -> Vec<String> {
         }
     }
     args.extend(client_args);
-    args.extend(["--width".into(), p.window.0.to_string(), "--height".into(), p.window.1.to_string()]);
+    args.extend([
+        "--width".into(),
+        p.window.0.to_string(),
+        "--height".into(),
+        p.window.1.to_string(),
+    ]);
     args
 }
 
@@ -236,7 +337,9 @@ pub fn build_args(p: &LaunchParams) -> Vec<String> {
 /// и следующая игра открывалась то в окне, то на весь экран
 pub fn sync_fullscreen_option(client_dir: &std::path::Path, full_screen: bool) {
     let path = client_dir.join("options.txt");
-    let Ok(text) = std::fs::read_to_string(&path) else { return };
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return;
+    };
     let want = format!("fullscreen:{full_screen}");
     let mut changed = false;
     let lines: Vec<String> = text
@@ -251,9 +354,14 @@ pub fn sync_fullscreen_option(client_dir: &std::path::Path, full_screen: bool) {
         })
         .collect();
     if changed {
-        let _ = std::fs::write(&path, lines.join("
-") + "
-");
+        let _ = std::fs::write(
+            &path,
+            lines.join(
+                "
+",
+            ) + "
+",
+        );
     }
 }
 

@@ -22,7 +22,11 @@ fn data_dirs() -> Vec<PathBuf> {
     #[cfg(not(windows))]
     {
         if let Some(h) = std::env::var_os("HOME").map(PathBuf::from) {
-            v.push(std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| h.join(".local/share")));
+            v.push(
+                std::env::var_os("XDG_DATA_HOME")
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| h.join(".local/share")),
+            );
             v.push(h.join("Library/Application Support"));
             v.push(h.join("Library/Caches"));
             v.push(h.join("Library/WebKit"));
@@ -42,8 +46,18 @@ pub fn run() {
     }
     let app = paths::app_dir();
     for f in [
-        "settings.json", "remembered.dat", "quick.dat", "cxc.key", "private.key", "public.key", "launcher.lock",
-        "self-update.lock", "pending-launcher-update.json", "close-debug.txt", "dock-icon-debug.txt", "quick-debug.txt",
+        "settings.json",
+        "remembered.dat",
+        "quick.dat",
+        "cxc.key",
+        "private.key",
+        "public.key",
+        "launcher.lock",
+        "self-update.lock",
+        "pending-launcher-update.json",
+        "close-debug.txt",
+        "dock-icon-debug.txt",
+        "quick-debug.txt",
     ] {
         let _ = std::fs::remove_file(app.join(f));
     }
@@ -51,7 +65,9 @@ pub fn run() {
         for e in rd.flatten() {
             let n = e.file_name().to_string_lossy().to_string();
             // недокачанные/старые файлы самообновления Gravit и его темы-CSS
-            if (n.ends_with(".new") && n.contains(".exe.")) || n.starts_with("cubexcraft-custom-theme-") {
+            if (n.ends_with(".new") && n.contains(".exe."))
+                || n.starts_with("cubexcraft-custom-theme-")
+            {
                 let _ = std::fs::remove_file(e.path());
             }
         }

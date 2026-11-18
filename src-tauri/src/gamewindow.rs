@@ -4,7 +4,9 @@
 /// Windows/Linux - физические пиксели (GLFW в Minecraft DPI-aware), macOS - точки.
 pub fn size(app: &tauri::AppHandle) -> (u32, u32) {
     use tauri::Manager;
-    let mon = app.get_webview_window("main").and_then(|w| w.primary_monitor().ok().flatten());
+    let mon = app
+        .get_webview_window("main")
+        .and_then(|w| w.primary_monitor().ok().flatten());
     let Some(mon) = mon else { return (1280, 720) };
     let area = mon.work_area();
     let (mut aw, mut ah) = (area.size.width as f64, area.size.height as f64);
@@ -13,7 +15,9 @@ pub fn size(app: &tauri::AppHandle) -> (u32, u32) {
         aw /= s;
         ah /= s;
     }
-    let w = (aw * 0.72).min(ah * 0.72 * 16.0 / 9.0).max(854f64.min(aw * 0.95));
+    let w = (aw * 0.72)
+        .min(ah * 0.72 * 16.0 / 9.0)
+        .max(854f64.min(aw * 0.95));
     let w = (w as u32) & !1;
     (w, ((w as f64) * 9.0 / 16.0).round() as u32)
 }
@@ -50,7 +54,9 @@ pub fn bring_to_front_when_shown(pid: u32) -> std::sync::Arc<std::sync::atomic::
     std::thread::spawn(move || {
         while start.elapsed() < Duration::from_secs(300) {
             std::thread::sleep(Duration::from_millis(200));
-            let Some(h) = find_game_window(pid) else { continue };
+            let Some(h) = find_game_window(pid) else {
+                continue;
+            };
             log(format!("окно найдено: {}", describe(h)));
             crate::timing::mark("окно игры появилось");
             seen.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -66,7 +72,11 @@ pub fn bring_to_front_when_shown(pid: u32) -> std::sync::Arc<std::sync::atomic::
                 let how = unsafe { force_foreground(h) };
                 std::thread::sleep(Duration::from_millis(700));
                 let now = unsafe { GetForegroundWindow() };
-                log(format!("попытка {attempt}: было активно {}, {how}, сейчас активно {}", describe(before), describe(now)));
+                log(format!(
+                    "попытка {attempt}: было активно {}, {how}, сейчас активно {}",
+                    describe(before),
+                    describe(now)
+                ));
                 if now == h {
                     return;
                 }
@@ -85,7 +95,9 @@ pub fn bring_to_front_when_shown(pid: u32) -> std::sync::Arc<std::sync::atomic::
 #[cfg(windows)]
 unsafe fn force_foreground(h: windows_sys::Win32::Foundation::HWND) -> String {
     use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
-    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{keybd_event, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, VK_MENU};
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+        keybd_event, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, VK_MENU,
+    };
     use windows_sys::Win32::UI::WindowsAndMessaging::*;
     if IsIconic(h) != 0 {
         ShowWindow(h, SW_RESTORE);
@@ -95,7 +107,11 @@ unsafe fn force_foreground(h: windows_sys::Win32::Foundation::HWND) -> String {
     SetWindowPos(h, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
 
     let fg = GetForegroundWindow();
-    let fg_thread = if fg.is_null() { 0 } else { GetWindowThreadProcessId(fg, std::ptr::null_mut()) };
+    let fg_thread = if fg.is_null() {
+        0
+    } else {
+        GetWindowThreadProcessId(fg, std::ptr::null_mut())
+    };
     let me = GetCurrentThreadId();
     let attached = fg_thread != 0 && fg_thread != me && AttachThreadInput(me, fg_thread, 1) != 0;
     BringWindowToTop(h);
@@ -128,13 +144,20 @@ fn find_game_window(pid: u32) -> Option<windows_sys::Win32::Foundation::HWND> {
         let s = &mut *(l as *mut Search);
         let mut owner_pid = 0u32;
         GetWindowThreadProcessId(h, &mut owner_pid);
-        if owner_pid == s.pid && IsWindowVisible(h) != 0 && GetWindow(h, GW_OWNER).is_null() && class_of(h) == "GLFW30" {
+        if owner_pid == s.pid
+            && IsWindowVisible(h) != 0
+            && GetWindow(h, GW_OWNER).is_null()
+            && class_of(h) == "GLFW30"
+        {
             s.found = h;
             return 0;
         }
         1
     }
-    let mut s = Search { pid, found: std::ptr::null_mut() };
+    let mut s = Search {
+        pid,
+        found: std::ptr::null_mut(),
+    };
     unsafe {
         EnumWindows(Some(visit), &mut s as *mut Search as LPARAM);
     }
@@ -144,7 +167,13 @@ fn find_game_window(pid: u32) -> Option<windows_sys::Win32::Foundation::HWND> {
 #[cfg(windows)]
 fn class_of(h: windows_sys::Win32::Foundation::HWND) -> String {
     let mut buf = [0u16; 128];
-    let n = unsafe { windows_sys::Win32::UI::WindowsAndMessaging::GetClassNameW(h, buf.as_mut_ptr(), buf.len() as i32) };
+    let n = unsafe {
+        windows_sys::Win32::UI::WindowsAndMessaging::GetClassNameW(
+            h,
+            buf.as_mut_ptr(),
+            buf.len() as i32,
+        )
+    };
     String::from_utf16_lossy(&buf[..n.max(0) as usize])
 }
 
@@ -161,5 +190,9 @@ fn describe(h: windows_sys::Win32::Foundation::HWND) -> String {
         GetWindowThreadProcessId(h, &mut pid);
         GetWindowTextW(h, title.as_mut_ptr(), title.len() as i32)
     };
-    format!("[{} pid {pid} «{}»]", class_of(h), String::from_utf16_lossy(&title[..n.max(0) as usize]))
+    format!(
+        "[{} pid {pid} «{}»]",
+        class_of(h),
+        String::from_utf16_lossy(&title[..n.max(0) as usize])
+    )
 }

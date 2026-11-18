@@ -53,7 +53,9 @@ impl From<ApiError> for String {
 async fn fail(r: reqwest::Response) -> ApiError {
     let status = r.status();
     let body: Value = r.json().await.unwrap_or(Value::Null);
-    if status == reqwest::StatusCode::UNAUTHORIZED && body.get("error").and_then(|e| e.as_str()) == Some("auth") {
+    if status == reqwest::StatusCode::UNAUTHORIZED
+        && body.get("error").and_then(|e| e.as_str()) == Some("auth")
+    {
         return ApiError("auth.invalidtoken".into());
     }
     ApiError(
@@ -92,7 +94,13 @@ pub enum LoginOutcome {
 
 /// twofa: "poll" - лаунчер сам ждёт подтверждения в Telegram (своё окно ожидания);
 /// "skip" - перенос паролей старого лаунчера: если включена 2FA, сразу отказ, без запроса в бот
-pub async fn login(http: &reqwest::Client, login: &str, password: &str, device: &str, twofa: &str) -> Result<LoginOutcome, ApiError> {
+pub async fn login(
+    http: &reqwest::Client,
+    login: &str,
+    password: &str,
+    device: &str,
+    twofa: &str,
+) -> Result<LoginOutcome, ApiError> {
     let r = http
         .post(format!("{API}/auth/login"))
         .json(&serde_json::json!({ "login": login, "password": password, "device": device, "twofa": twofa }))
@@ -127,7 +135,8 @@ pub async fn twofa_poll(http: &reqwest::Client, challenge: &str) -> Result<TwoFa
     }
     let v: Value = r.json().await.map_err(net)?;
     if v.get("accessToken").is_some() {
-        let d: LoginResp = serde_json::from_value(v).map_err(|e| ApiError(format!("Плохой ответ сервера: {e}")))?;
+        let d: LoginResp = serde_json::from_value(v)
+            .map_err(|e| ApiError(format!("Плохой ответ сервера: {e}")))?;
         return Ok(TwoFaPoll::Done(d.access_token, d.user));
     }
     Ok(TwoFaPoll::Pending)
@@ -143,7 +152,12 @@ pub async fn twofa_cancel(http: &reqwest::Client, challenge: &str) {
 }
 
 pub async fn me(http: &reqwest::Client, token: &str) -> Result<User, ApiError> {
-    let r = http.get(format!("{API}/me")).bearer_auth(token).send().await.map_err(net)?;
+    let r = http
+        .get(format!("{API}/me"))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(net)?;
     if !r.status().is_success() {
         return Err(fail(r).await);
     }
@@ -151,11 +165,20 @@ pub async fn me(http: &reqwest::Client, token: &str) -> Result<User, ApiError> {
 }
 
 pub async fn logout(http: &reqwest::Client, token: &str) {
-    let _ = http.post(format!("{API}/auth/logout")).bearer_auth(token).send().await;
+    let _ = http
+        .post(format!("{API}/auth/logout"))
+        .bearer_auth(token)
+        .send()
+        .await;
 }
 
 pub async fn profiles(http: &reqwest::Client, token: &str) -> Result<Vec<Value>, ApiError> {
-    let r = http.get(format!("{API}/profiles")).bearer_auth(token).send().await.map_err(net)?;
+    let r = http
+        .get(format!("{API}/profiles"))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(net)?;
     if !r.status().is_success() {
         return Err(fail(r).await);
     }
@@ -163,7 +186,12 @@ pub async fn profiles(http: &reqwest::Client, token: &str) -> Result<Vec<Value>,
 }
 
 pub async fn game_session(http: &reqwest::Client, token: &str) -> Result<GameSession, ApiError> {
-    let r = http.post(format!("{API}/game/session")).bearer_auth(token).send().await.map_err(net)?;
+    let r = http
+        .post(format!("{API}/game/session"))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(net)?;
     if !r.status().is_success() {
         return Err(fail(r).await);
     }
@@ -177,7 +205,11 @@ pub struct Manifest {
     pub files: std::collections::BTreeMap<String, (u64, String)>,
 }
 
-pub async fn manifest(http: &reqwest::Client, token: &str, dir: &str) -> Result<Manifest, ApiError> {
+pub async fn manifest(
+    http: &reqwest::Client,
+    token: &str,
+    dir: &str,
+) -> Result<Manifest, ApiError> {
     let r = http
         .get(format!("{API}/files/{}", urlencode(dir)))
         .bearer_auth(token)
@@ -187,7 +219,9 @@ pub async fn manifest(http: &reqwest::Client, token: &str, dir: &str) -> Result<
     if !r.status().is_success() {
         return Err(fail(r).await);
     }
-    r.json().await.map_err(|e| ApiError(format!("Плохой ответ сервера: {e}")))
+    r.json()
+        .await
+        .map_err(|e| ApiError(format!("Плохой ответ сервера: {e}")))
 }
 
 pub fn urlencode(s: &str) -> String {
@@ -204,13 +238,23 @@ pub fn urlencode(s: &str) -> String {
 
 /// друзья/статус (launcher-friends.js на сайте): GET без тела или POST с телом; ответ - снимок
 /// { friends, requests, notifications } (+ result/username у действий), 204 - Value::Null
-pub async fn social(http: &reqwest::Client, token: &str, path: &str, body: Option<&Value>) -> Result<Value, ApiError> {
+pub async fn social(
+    http: &reqwest::Client,
+    token: &str,
+    path: &str,
+    body: Option<&Value>,
+) -> Result<Value, ApiError> {
     let url = format!("{API}/{path}");
     let req = match body {
         Some(b) => http.post(url).json(b),
         None => http.get(url),
     };
-    let r = req.bearer_auth(token).timeout(std::time::Duration::from_secs(15)).send().await.map_err(net)?;
+    let r = req
+        .bearer_auth(token)
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(net)?;
     if r.status() == reqwest::StatusCode::NO_CONTENT {
         return Ok(Value::Null);
     }
@@ -225,7 +269,11 @@ pub async fn social(http: &reqwest::Client, token: &str, path: &str, body: Optio
 /// Обложки качаются здесь, тем же клиентом (через ретранслятор, если он включён), и уходят в интерфейс как data:-адреса:
 /// сам WebView ходил бы к сайту напрямую, а из РФ такие соединения режут после ~16 КБ. Обложка, которая не скачалась, — null.
 /// lang - язык новостей: добавляется в запрос, только если это ровно ru/en/uk (иначе сайт отдаёт язык по умолчанию)
-pub async fn news(http: &reqwest::Client, limit: Option<u32>, lang: Option<String>) -> Result<Value, ApiError> {
+pub async fn news(
+    http: &reqwest::Client,
+    limit: Option<u32>,
+    lang: Option<String>,
+) -> Result<Value, ApiError> {
     use base64::Engine;
     use std::collections::HashMap;
     use std::sync::{Mutex, OnceLock};
@@ -245,14 +293,21 @@ pub async fn news(http: &reqwest::Client, limit: Option<u32>, lang: Option<Strin
     } else {
         format!("{API}/news?{}", query.join("&"))
     };
-    let r = http.get(url).timeout(std::time::Duration::from_secs(20)).send().await.map_err(net)?;
+    let r = http
+        .get(url)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(net)?;
     if !r.status().is_success() {
         return Err(fail(r).await);
     }
     let mut v: Value = r.json().await.map_err(net)?;
     if let Some(list) = v.get_mut("news").and_then(|n| n.as_array_mut()) {
         for item in list.iter_mut() {
-            let Some(url) = item.get("cover").and_then(|c| c.as_str()).map(String::from) else { continue };
+            let Some(url) = item.get("cover").and_then(|c| c.as_str()).map(String::from) else {
+                continue;
+            };
             if let Some(hit) = covers.lock().ok().and_then(|m| m.get(&url).cloned()) {
                 item["cover"] = Value::String(hit);
                 continue;
@@ -261,16 +316,31 @@ pub async fn news(http: &reqwest::Client, limit: Option<u32>, lang: Option<Strin
                 if !url.starts_with("https://www.cubexcraft.site/") {
                     return None;
                 }
-                let r = http.get(&url).timeout(std::time::Duration::from_secs(20)).send().await.ok()?;
+                let r = http
+                    .get(&url)
+                    .timeout(std::time::Duration::from_secs(20))
+                    .send()
+                    .await
+                    .ok()?;
                 if !r.status().is_success() {
                     return None;
                 }
-                let mime = r.headers().get(reqwest::header::CONTENT_TYPE).and_then(|h| h.to_str().ok()).unwrap_or("image/jpeg").to_string();
+                let mime = r
+                    .headers()
+                    .get(reqwest::header::CONTENT_TYPE)
+                    .and_then(|h| h.to_str().ok())
+                    .unwrap_or("image/jpeg")
+                    .to_string();
                 if !mime.starts_with("image/") {
                     return None;
                 }
                 let bytes = r.bytes().await.ok()?;
-                (bytes.len() <= MAX_COVER).then(|| format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(&bytes)))
+                (bytes.len() <= MAX_COVER).then(|| {
+                    format!(
+                        "data:{mime};base64,{}",
+                        base64::engine::general_purpose::STANDARD.encode(&bytes)
+                    )
+                })
             }
             .await;
             if let (Some(d), Ok(mut m)) = (&data, covers.lock()) {

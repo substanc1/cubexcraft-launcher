@@ -29,7 +29,9 @@ pub fn encrypt(key: &[u8; 32], plain: &[u8]) -> String {
     let cipher = Aes256Gcm::new_from_slice(key).expect("key 32");
     let mut nonce = [0u8; 12];
     rand::thread_rng().fill_bytes(&mut nonce);
-    let ct = cipher.encrypt(Nonce::from_slice(&nonce), plain).expect("aes-gcm");
+    let ct = cipher
+        .encrypt(Nonce::from_slice(&nonce), plain)
+        .expect("aes-gcm");
     let mut out = nonce.to_vec();
     out.extend_from_slice(&ct);
     B64.encode(out)
@@ -41,7 +43,9 @@ pub fn decrypt(key: &[u8; 32], b64: &str) -> Option<Vec<u8>> {
         return None;
     }
     let cipher = Aes256Gcm::new_from_slice(key).ok()?;
-    cipher.decrypt(Nonce::from_slice(&raw[..12]), &raw[12..]).ok()
+    cipher
+        .decrypt(Nonce::from_slice(&raw[..12]), &raw[12..])
+        .ok()
 }
 
 pub fn b64_decode_str(s: &str) -> Option<String> {

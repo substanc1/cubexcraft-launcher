@@ -35,8 +35,14 @@ struct Session {
 #[derive(Default)]
 struct Prefetch {
     update: Option<tauri::async_runtime::JoinHandle<Option<selfupdate::Release>>>,
-    me: Option<(String, tauri::async_runtime::JoinHandle<Result<api::User, api::ApiError>>)>,
-    profiles: Option<(String, tauri::async_runtime::JoinHandle<Result<Vec<Value>, api::ApiError>>)>,
+    me: Option<(
+        String,
+        tauri::async_runtime::JoinHandle<Result<api::User, api::ApiError>>,
+    )>,
+    profiles: Option<(
+        String,
+        tauri::async_runtime::JoinHandle<Result<Vec<Value>, api::ApiError>>,
+    )>,
 }
 
 struct AppState {
@@ -76,7 +82,10 @@ impl AppState {
     /// разовая уборка за старым лаунчером после первого успешного входа (cleanup.rs)
     fn cleanup_gravit_once(&self) {
         let mut s = self.settings.lock().unwrap();
-        if s.get("gravitCleaned").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if s.get("gravitCleaned")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
             return;
         }
         s["gravitCleaned"] = json!(true);
@@ -99,7 +108,12 @@ impl AppState {
             .into_iter()
             .flatten()
             .filter_map(|l| l.as_str())
-            .filter_map(|l| accounts.accounts.iter().find(|a| a.login.eq_ignore_ascii_case(l)))
+            .filter_map(|l| {
+                accounts
+                    .accounts
+                    .iter()
+                    .find(|a| a.login.eq_ignore_ascii_case(l))
+            })
             .map(|a| json!({ "login": a.login, "username": a.username }))
             .collect();
         Value::Array(list)
@@ -107,11 +121,26 @@ impl AppState {
 
     fn remember(&self, login: &str, token: &str, user: &api::User) {
         let mut acc = self.store.load_accounts();
-        acc.accounts.retain(|a| !a.login.eq_ignore_ascii_case(login));
-        acc.accounts.insert(0, SavedAccount { login: login.into(), username: user.username.clone(), uuid: user.uuid.clone(), token: token.into() });
+        acc.accounts
+            .retain(|a| !a.login.eq_ignore_ascii_case(login));
+        acc.accounts.insert(
+            0,
+            SavedAccount {
+                login: login.into(),
+                username: user.username.clone(),
+                uuid: user.uuid.clone(),
+                token: token.into(),
+            },
+        );
         self.store.save_accounts(&acc);
         let mut s = self.settings.lock().unwrap();
-        let mut q: Vec<String> = s.get("quickAccounts").and_then(|v| v.as_array()).into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).collect();
+        let mut q: Vec<String> = s
+            .get("quickAccounts")
+            .and_then(|v| v.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|x| x.as_str().map(String::from))
+            .collect();
         q.retain(|l| !l.eq_ignore_ascii_case(login));
         q.insert(0, login.to_string());
         q.truncate(MAX_QUICK_ACCOUNTS);
@@ -120,21 +149,35 @@ impl AppState {
         // в accounts.dat - только аккаунты из быстрого списка
         let keep: Vec<String> = q;
         let mut acc = self.store.load_accounts();
-        acc.accounts.retain(|a| keep.iter().any(|l| l.eq_ignore_ascii_case(&a.login)));
+        acc.accounts
+            .retain(|a| keep.iter().any(|l| l.eq_ignore_ascii_case(&a.login)));
         self.store.save_accounts(&acc);
     }
 
     fn forget(&self, login: &str) {
         let mut acc = self.store.load_accounts();
-        acc.accounts.retain(|a| !a.login.eq_ignore_ascii_case(login));
+        acc.accounts
+            .retain(|a| !a.login.eq_ignore_ascii_case(login));
         self.store.save_accounts(&acc);
         let mut s = self.settings.lock().unwrap();
-        let q: Vec<String> = s.get("quickAccounts").and_then(|v| v.as_array()).into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).filter(|l| !l.eq_ignore_ascii_case(login)).collect();
+        let q: Vec<String> = s
+            .get("quickAccounts")
+            .and_then(|v| v.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|x| x.as_str().map(String::from))
+            .filter(|l| !l.eq_ignore_ascii_case(login))
+            .collect();
         s["quickAccounts"] = json!(q);
     }
 
     fn token(&self) -> R<String> {
-        self.session.lock().unwrap().as_ref().map(|s| s.token.clone()).ok_or_else(|| "auth.invalidtoken".to_string())
+        self.session
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|s| s.token.clone())
+            .ok_or_else(|| "auth.invalidtoken".to_string())
     }
 }
 
@@ -148,16 +191,38 @@ async fn app_init(state: State<'_, AppState>) -> R<Value> {
             *state.settings.lock().unwrap() = store::with_defaults(m.settings);
             for c in m.credentials {
                 // "skip": с включённой 2FA аккаунт не переносится молча (без запроса в бот) - игрок войдёт сам
-                if let Ok(api::LoginOutcome::Done(token, user)) = api::login(&route::http(), &c.login, &c.password, &device(), "skip").await {
+                if let Ok(api::LoginOutcome::Done(token, user)) =
+                    api::login(&route::http(), &c.login, &c.password, &device(), "skip").await
+                {
                     state.remember(&c.login, &token, &user);
                 }
             }
             // основной аккаунт - первым в быстром списке
-            let main = state.settings.lock().unwrap().get("login").and_then(|v| v.as_str()).map(String::from);
+            let main = state
+                .settings
+                .lock()
+                .unwrap()
+                .get("login")
+                .and_then(|v| v.as_str())
+                .map(String::from);
             if let Some(login) = main {
                 let acc = state.store.load_accounts();
-                if let Some(a) = acc.accounts.iter().find(|a| a.login.eq_ignore_ascii_case(&login)).cloned() {
-                    state.remember(&a.login, &a.token, &api::User { uuid: a.uuid, username: a.username, skin: None, cloak: None });
+                if let Some(a) = acc
+                    .accounts
+                    .iter()
+                    .find(|a| a.login.eq_ignore_ascii_case(&login))
+                    .cloned()
+                {
+                    state.remember(
+                        &a.login,
+                        &a.token,
+                        &api::User {
+                            uuid: a.uuid,
+                            username: a.username,
+                            skin: None,
+                            cloak: None,
+                        },
+                    );
                 }
             }
         }
@@ -165,7 +230,16 @@ async fn app_init(state: State<'_, AppState>) -> R<Value> {
     }
     let accounts = state.store.load_accounts();
     let mut s = state.settings.lock().unwrap().clone();
-    let has_saved = s.get("login").and_then(|v| v.as_str()).map(|l| accounts.accounts.iter().any(|a| a.login.eq_ignore_ascii_case(l))).unwrap_or(false);
+    let has_saved = s
+        .get("login")
+        .and_then(|v| v.as_str())
+        .map(|l| {
+            accounts
+                .accounts
+                .iter()
+                .any(|a| a.login.eq_ignore_ascii_case(l))
+        })
+        .unwrap_or(false);
     s["hasSavedSession"] = json!(has_saved);
     Ok(json!({
         "settings": s,
@@ -194,7 +268,10 @@ fn settings_save(state: State<'_, AppState>, settings: Value) -> R<()> {
 /// показывает ожидание и зовёт auth_2fa_wait
 #[tauri::command]
 async fn auth_login(state: State<'_, AppState>, login: String, password: String) -> R<Value> {
-    match api::login(&route::http(), &login, &password, &device(), "poll").await.map_err(String::from)? {
+    match api::login(&route::http(), &login, &password, &device(), "poll")
+        .await
+        .map_err(String::from)?
+    {
         api::LoginOutcome::Done(token, user) => {
             let out = user_json(&user);
             *state.session.lock().unwrap() = Some(Session { login, token, user });
@@ -203,7 +280,9 @@ async fn auth_login(state: State<'_, AppState>, login: String, password: String)
         }
         api::LoginOutcome::TwoFa(tf) => {
             *state.twofa.lock().unwrap() = Some((tf.challenge.clone(), login));
-            Ok(json!({ "twofa": { "challenge": tf.challenge, "expiresIn": tf.expires_in, "bot": tf.bot } }))
+            Ok(
+                json!({ "twofa": { "challenge": tf.challenge, "expiresIn": tf.expires_in, "bot": tf.bot } }),
+            )
         }
     }
 }
@@ -262,7 +341,12 @@ async fn auth_2fa_cancel(state: State<'_, AppState>, challenge: String) -> R<()>
 async fn auth_restore(state: State<'_, AppState>, login: String) -> R<Value> {
     timing::mark("вход: запрос от интерфейса");
     let acc = state.store.load_accounts();
-    let a = acc.accounts.iter().find(|a| a.login.eq_ignore_ascii_case(&login)).cloned().ok_or("auth.invalidtoken")?;
+    let a = acc
+        .accounts
+        .iter()
+        .find(|a| a.login.eq_ignore_ascii_case(&login))
+        .cloned()
+        .ok_or("auth.invalidtoken")?;
     let pre = match state.prefetch.lock().unwrap().me.take() {
         Some((l, h)) if l.eq_ignore_ascii_case(&a.login) => Some(h),
         _ => None,
@@ -278,7 +362,11 @@ async fn auth_restore(state: State<'_, AppState>, login: String) -> R<Value> {
     match me {
         Ok(user) => {
             let out = user_json(&user);
-            *state.session.lock().unwrap() = Some(Session { login: a.login, token: a.token, user });
+            *state.session.lock().unwrap() = Some(Session {
+                login: a.login,
+                token: a.token,
+                user,
+            });
             state.cleanup_gravit_once();
             Ok(out)
         }
@@ -295,7 +383,12 @@ async fn auth_restore(state: State<'_, AppState>, login: String) -> R<Value> {
 /// после входа: «сохранить пароль» = сохранить токен этой сессии (и в быстрый список аккаунтов)
 #[tauri::command]
 fn auth_remember(state: State<'_, AppState>, remember: bool) -> R<Value> {
-    let sess = state.session.lock().unwrap().as_ref().map(|s| (s.login.clone(), s.token.clone(), s.user.clone()));
+    let sess = state
+        .session
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|s| (s.login.clone(), s.token.clone(), s.user.clone()));
     if let Some((login, token, user)) = sess {
         if remember {
             state.remember(&login, &token, &user);
@@ -311,7 +404,13 @@ fn auth_remember(state: State<'_, AppState>, remember: bool) -> R<Value> {
 async fn auth_logout(state: State<'_, AppState>) -> R<Value> {
     let sess = state.session.lock().unwrap().take();
     if let Some(s) = sess {
-        let _ = api::social(&route::http(), &s.token, "presence/offline", Some(&json!({}))).await;
+        let _ = api::social(
+            &route::http(),
+            &s.token,
+            "presence/offline",
+            Some(&json!({})),
+        )
+        .await;
         api::logout(&route::http(), &s.token).await;
         state.forget(&s.login);
         state.save_settings();
@@ -337,7 +436,12 @@ async fn profiles_list(state: State<'_, AppState>) -> R<Vec<Value>> {
     };
     let mut list = fetched.map_err(String::from)?;
     timing::mark("список серверов получен");
-    list.sort_by(|a, b| a["title"].as_str().unwrap_or("").cmp(b["title"].as_str().unwrap_or("")));
+    list.sort_by(|a, b| {
+        a["title"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["title"].as_str().unwrap_or(""))
+    });
     *state.profiles.lock().unwrap() = list.clone();
     Ok(list)
 }
@@ -362,9 +466,21 @@ struct PlayOptions {
 
 /// Запуск игры по профилю: Horizon - своим путём; обычный клиент - маршрут, синхронизация файлов, запуск Java.
 #[tauri::command]
-async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: String, options: PlayOptions) -> R<()> {
+async fn game_play(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    uuid: String,
+    options: PlayOptions,
+) -> R<()> {
     let token = state.token()?;
-    let profile = state.profiles.lock().unwrap().iter().find(|p| p["uuid"].as_str() == Some(uuid.as_str())).cloned().ok_or("Профиль не найден")?;
+    let profile = state
+        .profiles
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|p| p["uuid"].as_str() == Some(uuid.as_str()))
+        .cloned()
+        .ok_or("Профиль не найден")?;
     state.cancel.store(false, Ordering::Relaxed);
     if horizon::is_horizon(&profile) {
         return play_horizon(&app, &state, &token, &profile, options).await;
@@ -396,15 +512,40 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
     timing::mark("Java, манифесты и токен игры получены");
 
     // 2. файлы: свои библиотеки, assets, клиент
-    let syncer = sync::Syncer { http: route::http(), cancel: state.cancel.clone(), index: state.index.clone() };
+    let syncer = sync::Syncer {
+        http: route::http(),
+        cancel: state.cancel.clone(),
+        index: state.index.clone(),
+    };
     let index_path = paths::cxl_dir().join("index.json");
     let libs_dir = paths::cxl_dir().join("libs");
     let res: R<()> = async {
-        let rules = sync::Rules { update_all: true, ..Default::default() };
-        syncer.sync(&m_libs.map_err(String::from)?, &libs_dir, &rules, &|p| emit("libs", p)).await?;
-        syncer.sync(&m_assets.map_err(String::from)?, &updates.join(&asset_dir), &rules, &|p| emit("assets", p)).await?;
+        let rules = sync::Rules {
+            update_all: true,
+            ..Default::default()
+        };
+        syncer
+            .sync(&m_libs.map_err(String::from)?, &libs_dir, &rules, &|p| {
+                emit("libs", p)
+            })
+            .await?;
+        syncer
+            .sync(
+                &m_assets.map_err(String::from)?,
+                &updates.join(&asset_dir),
+                &rules,
+                &|p| emit("assets", p),
+            )
+            .await?;
         let rules = sync::rules_from_profile(&profile);
-        syncer.sync(&m_client.map_err(String::from)?, &updates.join(&dir), &rules, &|p| emit("client", p)).await?;
+        syncer
+            .sync(
+                &m_client.map_err(String::from)?,
+                &updates.join(&dir),
+                &rules,
+                &|p| emit("client", p),
+            )
+            .await?;
         Ok(())
     }
     .await;
@@ -430,7 +571,10 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
         access_token: gs.access_token.clone(),
     });
     launch::sync_fullscreen_option(&client_dir, options.full_screen);
-    let _ = app.emit("game-log", json!({ "line": format!("{} {}", java.display(), launch::redacted(&args)) }));
+    let _ = app.emit(
+        "game-log",
+        json!({ "line": format!("{} {}", java.display(), launch::redacted(&args)) }),
+    );
     spawn_game(&app, &state, &java, &args, &client_dir, &[], false)?;
     // друзьям: «на сборке <название>» (до выхода из игры)
     let title = profile["title"].as_str().unwrap_or(&dir).to_string();
@@ -440,7 +584,13 @@ async fn game_play(app: tauri::AppHandle, state: State<'_, AppState>, uuid: Stri
 }
 
 /// профиль на движке Horizon (CubeXRust): без Java и библиотек - клиент под эту систему, данные игры и файл сессии
-async fn play_horizon(app: &tauri::AppHandle, state: &State<'_, AppState>, token: &str, profile: &Value, options: PlayOptions) -> R<()> {
+async fn play_horizon(
+    app: &tauri::AppHandle,
+    state: &State<'_, AppState>,
+    token: &str,
+    profile: &Value,
+    options: PlayOptions,
+) -> R<()> {
     let updates = store::updates_dir(&state.settings.lock().unwrap());
     // папка под эту машину - до любых запросов: нет пакета - ошибка сразу, кнопка «Играть» возвращается
     let dir = horizon::client_dir_name(profile)?;
@@ -457,13 +607,34 @@ async fn play_horizon(app: &tauri::AppHandle, state: &State<'_, AppState>, token
         api::manifest(&http, token, &dir),
         api::game_session(&http, token),
     );
-    let syncer = sync::Syncer { http: route::http(), cancel: state.cancel.clone(), index: state.index.clone() };
+    let syncer = sync::Syncer {
+        http: route::http(),
+        cancel: state.cancel.clone(),
+        index: state.index.clone(),
+    };
     let index_path = paths::cxl_dir().join("index.json");
     let res: R<()> = async {
-        let rules = sync::Rules { update_all: true, ..Default::default() };
-        syncer.sync(&m_data.map_err(String::from)?, &updates.join(&data_dir), &rules, &|p| emit("assets", p)).await?;
+        let rules = sync::Rules {
+            update_all: true,
+            ..Default::default()
+        };
+        syncer
+            .sync(
+                &m_data.map_err(String::from)?,
+                &updates.join(&data_dir),
+                &rules,
+                &|p| emit("assets", p),
+            )
+            .await?;
         let rules = sync::rules_from_profile(profile);
-        syncer.sync(&m_client.map_err(String::from)?, &updates.join(&dir), &rules, &|p| emit("client", p)).await?;
+        syncer
+            .sync(
+                &m_client.map_err(String::from)?,
+                &updates.join(&dir),
+                &rules,
+                &|p| emit("client", p),
+            )
+            .await?;
         Ok(())
     }
     .await;
@@ -475,13 +646,32 @@ async fn play_horizon(app: &tauri::AppHandle, state: &State<'_, AppState>, token
     let client_dir = updates.join(&dir);
     let exe = horizon::exe(&client_dir);
     if !exe.is_file() {
-        return Err(format!("Клиент не найден: {} (пакет {dir} не скачан или повреждён)", exe.display()));
+        return Err(format!(
+            "Клиент не найден: {} (пакет {dir} не скачан или повреждён)",
+            exe.display()
+        ));
     }
     horizon::prepare_exe(&exe);
     let session = horizon::write_session(&gs)?;
-    let args = horizon::args(profile, &updates.join(&data_dir), &session, options.auto_enter);
-    let _ = app.emit("game-log", json!({ "line": format!("{} {}", exe.display(), args.join(" ")) }));
-    let spawned = spawn_game(app, state, &exe, &args, &client_dir, &horizon::env(profile, &client_dir), true);
+    let args = horizon::args(
+        profile,
+        &updates.join(&data_dir),
+        &session,
+        options.auto_enter,
+    );
+    let _ = app.emit(
+        "game-log",
+        json!({ "line": format!("{} {}", exe.display(), args.join(" ")) }),
+    );
+    let spawned = spawn_game(
+        app,
+        state,
+        &exe,
+        &args,
+        &client_dir,
+        &horizon::env(profile, &client_dir),
+        true,
+    );
     // клиент читает файл сессии при старте; дальше токен только в памяти игры
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(60)).await;
@@ -495,10 +685,22 @@ async fn play_horizon(app: &tauri::AppHandle, state: &State<'_, AppState>, token
 }
 
 /// Запускает процесс Java-клиента и построчно читает его stdout/stderr.
-fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::path::Path, args: &[String], cwd: &std::path::Path, env: &[(String, String)], horizon: bool) -> R<()> {
+fn spawn_game(
+    app: &tauri::AppHandle,
+    state: &State<'_, AppState>,
+    java: &std::path::Path,
+    args: &[String],
+    cwd: &std::path::Path,
+    env: &[(String, String)],
+    horizon: bool,
+) -> R<()> {
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut cmd = tokio::process::Command::new(java);
-    cmd.args(args).current_dir(cwd).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped()).stdin(std::process::Stdio::null());
+    cmd.args(args)
+        .current_dir(cwd)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .stdin(std::process::Stdio::null());
     if env.is_empty() {
         if let Some(home) = java.parent().and_then(|b| b.parent()) {
             cmd.env("JAVA_HOME", home);
@@ -511,16 +713,33 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
     cmd.env("__GL_THREADED_OPTIMIZATIONS", "0");
     logs::prune_client(cwd);
     let started = std::time::SystemTime::now();
-    let mut child = cmd.spawn().map_err(|e| format!("Не удалось запустить игру: {e}"))?;
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Не удалось запустить игру: {e}"))?;
     timing::mark(&format!("игра запущена (java {})", paths::game_arch()));
-    let window_seen = child.id().map(gamewindow::bring_to_front_when_shown).unwrap_or_default();
+    let window_seen = child
+        .id()
+        .map(gamewindow::bring_to_front_when_shown)
+        .unwrap_or_default();
     let win_arm64 = cfg!(windows) && paths::game_arch() == "arm64";
     let log_path = paths::cxl_dir().join("logs").join("game-latest.log");
     let _ = std::fs::create_dir_all(log_path.parent().unwrap());
     let log = Arc::new(Mutex::new(std::fs::File::create(&log_path).ok()));
     let menu_seen = Arc::new(AtomicBool::new(false));
     let mut readers = Vec::new();
-    for out in [child.stdout.take().map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>), child.stderr.take().map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>)].into_iter().flatten() {
+    for out in [
+        child
+            .stdout
+            .take()
+            .map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>),
+        child
+            .stderr
+            .take()
+            .map(|s| Box::new(s) as Box<dyn tokio::io::AsyncRead + Unpin + Send>),
+    ]
+    .into_iter()
+    .flatten()
+    {
         let app = app.clone();
         let log = log.clone();
         let menu_seen = menu_seen.clone();
@@ -535,7 +754,9 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
                     Ok(0) | Err(_) => break,
                     Ok(_) => {}
                 }
-                let line = String::from_utf8_lossy(&buf).trim_end_matches(['\r', '\n']).to_string();
+                let line = String::from_utf8_lossy(&buf)
+                    .trim_end_matches(['\r', '\n'])
+                    .to_string();
                 // наш экран меню (мод cubexcraft-mainmenu) зарегистрирован - игра загрузилась
                 if line.contains("CubexTitleScreen") && !menu_seen.swap(true, Ordering::Relaxed) {
                     timing::mark("главное меню игры");
@@ -573,18 +794,36 @@ fn spawn_game(app: &tauri::AppHandle, state: &State<'_, AppState>, java: &std::p
         for r in readers {
             let _ = tokio::time::timeout(std::time::Duration::from_secs(3), r).await;
         }
-        let saved = if !killed && code != 0 { logs::save_game_crash(code, &client_dir, started) } else { None };
+        let saved = if !killed && code != 0 {
+            logs::save_game_crash(code, &client_dir, started)
+        } else {
+            None
+        };
         // Horizon: вылет меньше чем через 20 с после старта - пояснение в журнал и в поле message (game-exit)
-        let early = horizon && !killed && code != 0 && started.elapsed().map(|d| d < std::time::Duration::from_secs(20)).unwrap_or(false);
+        let early = horizon
+            && !killed
+            && code != 0
+            && started
+                .elapsed()
+                .map(|d| d < std::time::Duration::from_secs(20))
+                .unwrap_or(false);
         let message = if early {
-            let journal = saved.clone().unwrap_or_else(|| log_path.to_string_lossy().to_string());
+            let journal = saved
+                .clone()
+                .unwrap_or_else(|| log_path.to_string_lossy().to_string());
             let text = format!("CubeXRust завершился с ошибкой (код {code}). Журнал: {journal}");
-            let _ = app2.emit("game-log", json!({ "line": format!("[CubeXCraft] {text}") }));
+            let _ = app2.emit(
+                "game-log",
+                json!({ "line": format!("[CubeXCraft] {text}") }),
+            );
             Some(text)
         } else {
             None
         };
-        let _ = app2.emit("game-exit", json!({ "code": code, "killed": killed, "saved": saved, "message": message }));
+        let _ = app2.emit(
+            "game-exit",
+            json!({ "code": code, "killed": killed, "saved": saved, "message": message }),
+        );
     });
     Ok(())
 }
@@ -608,12 +847,21 @@ fn is_running(state: &AppState) -> bool {
 }
 
 fn find_profile(state: &AppState, uuid: &str) -> R<Value> {
-    state.profiles.lock().unwrap().iter().find(|p| p["uuid"].as_str() == Some(uuid)).cloned().ok_or_else(|| "Профиль не найден".to_string())
+    state
+        .profiles
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|p| p["uuid"].as_str() == Some(uuid))
+        .cloned()
+        .ok_or_else(|| "Профиль не найден".to_string())
 }
 
 /// symlink или junction (reparse point): по такой ссылке не заходим и её содержимое не трогаем
 fn is_link(path: &std::path::Path) -> bool {
-    let Ok(m) = std::fs::symlink_metadata(path) else { return false };
+    let Ok(m) = std::fs::symlink_metadata(path) else {
+        return false;
+    };
     m.file_type().is_symlink() || is_reparse(&m)
 }
 
@@ -634,7 +882,11 @@ fn is_reparse(_m: &std::fs::Metadata) -> bool {
 fn build_dir(updates: &std::path::Path, profile: &Value) -> R<std::path::PathBuf> {
     use std::path::{Component, Path};
     const BAD: &str = "Недопустимая папка сборки";
-    let dir = profile["dir"].as_str().map(str::trim).filter(|s| !s.is_empty()).ok_or(BAD)?;
+    let dir = profile["dir"]
+        .as_str()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or(BAD)?;
     if dir == "." || dir == ".." || dir.contains(['/', '\\', ':', '\0']) {
         return Err(BAD.into());
     }
@@ -643,10 +895,17 @@ fn build_dir(updates: &std::path::Path, profile: &Value) -> R<std::path::PathBuf
         (Some(Component::Normal(_)), None) => {}
         _ => return Err(BAD.into()),
     }
-    if ["assets", "java", "libs"].iter().any(|r| r.eq_ignore_ascii_case(dir)) {
+    if ["assets", "java", "libs"]
+        .iter()
+        .any(|r| r.eq_ignore_ascii_case(dir))
+    {
         return Err(BAD.into());
     }
-    if let Some(a) = profile["assetDir"].as_str().map(str::trim).filter(|s| !s.is_empty()) {
+    if let Some(a) = profile["assetDir"]
+        .as_str()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         if a.eq_ignore_ascii_case(dir) {
             return Err(BAD.into());
         }
@@ -668,7 +927,9 @@ fn dir_usage(dir: &std::path::Path) -> (u64, u64) {
         return (0, 0);
     }
     let (mut files, mut bytes) = (0u64, 0u64);
-    let Ok(rd) = std::fs::read_dir(dir) else { return (0, 0) };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return (0, 0);
+    };
     for e in rd.flatten() {
         let p = e.path();
         if is_link(&p) {
@@ -688,8 +949,15 @@ fn dir_usage(dir: &std::path::Path) -> (u64, u64) {
 
 /// путь относительно корня сборки, с '/'; у папки - с завершающим '/' (чтобы is_user_path смотрел на саму папку)
 fn rel_in(root: &std::path::Path, p: &std::path::Path, is_dir: bool) -> String {
-    let rel = p.strip_prefix(root).map(|r| r.to_string_lossy().replace('\\', "/")).unwrap_or_default();
-    if is_dir { format!("{rel}/") } else { rel }
+    let rel = p
+        .strip_prefix(root)
+        .map(|r| r.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default();
+    if is_dir {
+        format!("{rel}/")
+    } else {
+        rel
+    }
 }
 
 /// удалить из папки сборки всё, кроме пользовательских путей, и пустые не-пользовательские подпапки; вернуть байты
@@ -697,7 +965,9 @@ fn remove_non_user(root: &std::path::Path, dir: &std::path::Path, freed: &mut u6
     if is_link(dir) {
         return; // корень-ссылка: содержимое чужое, не трогаем
     }
-    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
     for e in rd.flatten() {
         let p = e.path();
         if is_link(&p) {
@@ -744,7 +1014,10 @@ struct BuildInfo {
 async fn build_info(state: State<'_, AppState>, uuid: String) -> R<BuildInfo> {
     let profile = build_profile(&find_profile(&state, &uuid)?)?;
     let dir = profile["dir"].as_str().ok_or("dir")?.to_string();
-    let path = build_dir(&store::updates_dir(&state.settings.lock().unwrap()), &profile)?;
+    let path = build_dir(
+        &store::updates_dir(&state.settings.lock().unwrap()),
+        &profile,
+    )?;
     let p2 = path.clone();
     let (exists, files, bytes) = tokio::task::spawn_blocking(move || {
         let exists = p2.is_dir() && !is_link(&p2);
@@ -753,7 +1026,13 @@ async fn build_info(state: State<'_, AppState>, uuid: String) -> R<BuildInfo> {
     })
     .await
     .map_err(|e| e.to_string())?;
-    Ok(BuildInfo { dir, path: path.to_string_lossy().to_string(), bytes, files, exists })
+    Ok(BuildInfo {
+        dir,
+        path: path.to_string_lossy().to_string(),
+        bytes,
+        files,
+        exists,
+    })
 }
 
 #[derive(serde::Serialize)]
@@ -768,7 +1047,10 @@ async fn build_delete(state: State<'_, AppState>, uuid: String, keep_user: bool)
         return Err("Сначала закройте игру".into());
     }
     let profile = build_profile(&find_profile(&state, &uuid)?)?;
-    let path = build_dir(&store::updates_dir(&state.settings.lock().unwrap()), &profile)?;
+    let path = build_dir(
+        &store::updates_dir(&state.settings.lock().unwrap()),
+        &profile,
+    )?;
     let index = state.index.clone();
     let removed_bytes = tokio::task::spawn_blocking(move || -> R<u64> {
         let freed = if keep_user {
@@ -778,7 +1060,8 @@ async fn build_delete(state: State<'_, AppState>, uuid: String, keep_user: bool)
         } else {
             let (_, bytes) = dir_usage(&path);
             if path.exists() {
-                std::fs::remove_dir_all(&path).map_err(|e| format!("Не удалось удалить папку: {e}"))?;
+                std::fs::remove_dir_all(&path)
+                    .map_err(|e| format!("Не удалось удалить папку: {e}"))?;
             }
             bytes
         };
@@ -786,7 +1069,9 @@ async fn build_delete(state: State<'_, AppState>, uuid: String, keep_user: bool)
         let folder = path.to_string_lossy().to_string();
         let mut idx = index.lock().unwrap();
         idx.files.retain(|k, _| {
-            let inside = k.len() > folder.len() && k.starts_with(&folder) && matches!(k.as_bytes()[folder.len()], b'/' | b'\\');
+            let inside = k.len() > folder.len()
+                && k.starts_with(&folder)
+                && matches!(k.as_bytes()[folder.len()], b'/' | b'\\');
             !(inside && !std::path::Path::new(k).exists())
         });
         idx.save(&paths::cxl_dir().join("index.json"));
@@ -800,7 +1085,11 @@ async fn build_delete(state: State<'_, AppState>, uuid: String, keep_user: bool)
 /// проверка сборки: библиотеки, assets и клиент сверяются с манифестами заново (sha1 каждого файла клиента),
 /// лишние файлы клиента удаляются (deep_clean). Без Java и запуска игры.
 #[tauri::command]
-async fn build_verify(app: tauri::AppHandle, state: State<'_, AppState>, uuid: String) -> R<sync::SyncStats> {
+async fn build_verify(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    uuid: String,
+) -> R<sync::SyncStats> {
     if is_running(&state) {
         return Err("Сначала закройте игру".into());
     }
@@ -819,22 +1108,59 @@ async fn build_verify(app: tauri::AppHandle, state: State<'_, AppState>, uuid: S
     };
     let http = route::http();
     let (m_libs, m_assets, m_client) = tokio::join!(
-        async { if is_hz { None } else { Some(api::manifest(&http, &token, "@cxl").await) } },
+        async {
+            if is_hz {
+                None
+            } else {
+                Some(api::manifest(&http, &token, "@cxl").await)
+            }
+        },
         api::manifest(&http, &token, &asset_dir),
         api::manifest(&http, &token, &dir),
     );
-    let syncer = sync::Syncer { http: route::http(), cancel: state.cancel.clone(), index: state.index.clone() };
+    let syncer = sync::Syncer {
+        http: route::http(),
+        cancel: state.cancel.clone(),
+        index: state.index.clone(),
+    };
     let index_path = paths::cxl_dir().join("index.json");
     let libs_dir = paths::cxl_dir().join("libs");
     let res: R<sync::SyncStats> = async {
-        let rules = sync::Rules { update_all: true, ..Default::default() };
+        let rules = sync::Rules {
+            update_all: true,
+            ..Default::default()
+        };
         let a = match m_libs {
-            Some(m) => syncer.sync(&m.map_err(String::from)?, &libs_dir, &rules, &|p| emit("libs", p)).await?,
+            Some(m) => {
+                syncer
+                    .sync(&m.map_err(String::from)?, &libs_dir, &rules, &|p| {
+                        emit("libs", p)
+                    })
+                    .await?
+            }
             None => sync::SyncStats::default(),
         };
-        let b = syncer.sync(&m_assets.map_err(String::from)?, &updates.join(&asset_dir), &rules, &|p| emit("assets", p)).await?;
-        let rules = sync::Rules { force_hash: true, deep_clean: true, ..sync::rules_from_profile(&profile) };
-        let c = syncer.sync(&m_client.map_err(String::from)?, &client_dir, &rules, &|p| emit("client", p)).await?;
+        let b = syncer
+            .sync(
+                &m_assets.map_err(String::from)?,
+                &updates.join(&asset_dir),
+                &rules,
+                &|p| emit("assets", p),
+            )
+            .await?;
+        let rules = sync::Rules {
+            force_hash: true,
+            deep_clean: true,
+            ..sync::rules_from_profile(&profile)
+        };
+        let c = syncer
+            .sync(
+                &m_client.map_err(String::from)?,
+                &client_dir,
+                &rules,
+                &|p| emit("client", p),
+            )
+            .await?;
         Ok(sync::SyncStats {
             checked: a.checked + b.checked + c.checked,
             downloaded: a.downloaded + b.downloaded + c.downloaded,
@@ -880,7 +1206,11 @@ async fn window_close(app: tauri::AppHandle, state: State<'_, AppState>) -> R<()
         let _ = tokio::time::timeout(std::time::Duration::from_millis(1500), offline).await;
     }
     state.save_settings();
-    state.index.lock().unwrap().save(&paths::cxl_dir().join("index.json"));
+    state
+        .index
+        .lock()
+        .unwrap()
+        .save(&paths::cxl_dir().join("index.json"));
     std::thread::sleep(std::time::Duration::from_millis(150));
     app.exit(0);
     Ok(())
@@ -892,9 +1222,16 @@ async fn window_close(app: tauri::AppHandle, state: State<'_, AppState>) -> R<()
 async fn updates_dir_pick(app: tauri::AppHandle) -> R<Option<String>> {
     use tauri_plugin_dialog::DialogExt;
     let (tx, rx) = tokio::sync::oneshot::channel();
-    app.dialog().file().set_title("Сменить директорию загрузок").set_directory(paths::app_dir()).pick_folder(move |p| {
-        let _ = tx.send(p.and_then(|p| p.into_path().ok()).map(|p| p.to_string_lossy().to_string()));
-    });
+    app.dialog()
+        .file()
+        .set_title("Сменить директорию загрузок")
+        .set_directory(paths::app_dir())
+        .pick_folder(move |p| {
+            let _ = tx.send(
+                p.and_then(|p| p.into_path().ok())
+                    .map(|p| p.to_string_lossy().to_string()),
+            );
+        });
     Ok(rx.await.unwrap_or(None))
 }
 
@@ -905,7 +1242,9 @@ async fn updates_dir_change(state: State<'_, AppState>, path: String) -> R<Strin
     let to = std::path::PathBuf::from(&path);
     if from != to && from.exists() {
         let (f2, t2) = (from.clone(), to.clone());
-        tokio::task::spawn_blocking(move || move_dir(&f2, &t2)).await.map_err(|e| e.to_string())??;
+        tokio::task::spawn_blocking(move || move_dir(&f2, &t2))
+            .await
+            .map_err(|e| e.to_string())??;
     }
     state.settings.lock().unwrap()["updatesDir"] = json!(path);
     state.save_settings();
@@ -914,11 +1253,18 @@ async fn updates_dir_change(state: State<'_, AppState>, path: String) -> R<Strin
 
 fn move_dir(from: &std::path::Path, to: &std::path::Path) -> R<()> {
     std::fs::create_dir_all(to).map_err(|e| e.to_string())?;
-    for e in std::fs::read_dir(from).map_err(|e| e.to_string())?.flatten() {
+    for e in std::fs::read_dir(from)
+        .map_err(|e| e.to_string())?
+        .flatten()
+    {
         let dst = to.join(e.file_name());
         if std::fs::rename(e.path(), &dst).is_err() {
             copy_tree(&e.path(), &dst)?;
-            let _ = if e.path().is_dir() { std::fs::remove_dir_all(e.path()) } else { std::fs::remove_file(e.path()) };
+            let _ = if e.path().is_dir() {
+                std::fs::remove_dir_all(e.path())
+            } else {
+                std::fs::remove_file(e.path())
+            };
         }
     }
     let _ = std::fs::remove_dir(from);
@@ -928,7 +1274,10 @@ fn move_dir(from: &std::path::Path, to: &std::path::Path) -> R<()> {
 fn copy_tree(from: &std::path::Path, to: &std::path::Path) -> R<()> {
     if from.is_dir() {
         std::fs::create_dir_all(to).map_err(|e| e.to_string())?;
-        for e in std::fs::read_dir(from).map_err(|e| e.to_string())?.flatten() {
+        for e in std::fs::read_dir(from)
+            .map_err(|e| e.to_string())?
+            .flatten()
+        {
             copy_tree(&e.path(), &to.join(e.file_name()))?;
         }
     } else {
@@ -963,24 +1312,40 @@ fn log_error(msg: String) {
 
 #[tauri::command]
 async fn news_get(limit: Option<u32>, lang: Option<String>) -> R<Value> {
-    api::news(&route::http(), limit, lang).await.map_err(String::from)
+    api::news(&route::http(), limit, lang)
+        .await
+        .map_err(String::from)
 }
 
 // ---------------------------------------------------------------- друзья (launcher-friends.js на сайте)
 
 #[tauri::command]
 async fn friends_get(state: State<'_, AppState>) -> R<Value> {
-    api::social(&route::http(), &state.token()?, "friends", None).await.map_err(String::from)
+    api::social(&route::http(), &state.token()?, "friends", None)
+        .await
+        .map_err(String::from)
 }
 
 /// request | accept | decline | remove | invite (server - сборка, куда зовём)
 #[tauri::command]
-async fn friends_action(state: State<'_, AppState>, action: String, username: String, server: Option<String>) -> R<Value> {
+async fn friends_action(
+    state: State<'_, AppState>,
+    action: String,
+    username: String,
+    server: Option<String>,
+) -> R<Value> {
     if !["request", "accept", "decline", "remove", "invite"].contains(&action.as_str()) {
         return Err("bad action".into());
     }
     let body = json!({ "username": username, "server": server });
-    api::social(&route::http(), &state.token()?, &format!("friends/{action}"), Some(&body)).await.map_err(String::from)
+    api::social(
+        &route::http(),
+        &state.token()?,
+        &format!("friends/{action}"),
+        Some(&body),
+    )
+    .await
+    .map_err(String::from)
 }
 
 /// read (прочитать все) | dismiss (убрать одно)
@@ -990,13 +1355,24 @@ async fn notes_action(state: State<'_, AppState>, action: String, id: Option<Str
         return Err("bad action".into());
     }
     let body = json!({ "id": id });
-    api::social(&route::http(), &state.token()?, &format!("notifications/{action}"), Some(&body)).await.map_err(String::from)
+    api::social(
+        &route::http(),
+        &state.token()?,
+        &format!("notifications/{action}"),
+        Some(&body),
+    )
+    .await
+    .map_err(String::from)
 }
 
 /// интерфейс: online (лаунчер открыт) | away (свёрнут или без действий); сразу отправить
 #[tauri::command]
 fn presence_set(state: State<'_, AppState>, ui: String) {
-    state.presence.lock().unwrap().ui = if ui == "away" { "away".into() } else { "online".into() };
+    state.presence.lock().unwrap().ui = if ui == "away" {
+        "away".into()
+    } else {
+        "online".into()
+    };
     state.presence_kick.notify_one();
 }
 
@@ -1005,7 +1381,11 @@ fn presence_set(state: State<'_, AppState>, ui: String) {
 async fn presence_loop(app: tauri::AppHandle) {
     loop {
         let st = app.state::<AppState>();
-        let _ = tokio::time::timeout(std::time::Duration::from_secs(30), st.presence_kick.notified()).await;
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            st.presence_kick.notified(),
+        )
+        .await;
         let Ok(token) = st.token() else { continue };
         let p = st.presence.lock().unwrap().clone();
         let body = match &p.playing {
@@ -1027,15 +1407,25 @@ async fn self_update_check(state: State<'_, AppState>) -> R<Option<selfupdate::R
         Some(h) => h.await.ok().flatten(),
         None => selfupdate::check(&route::http()).await,
     };
-    timing::mark(&format!("проверка обновления: {}", rel.as_ref().map(|r| r.version.as_str()).unwrap_or("нет")));
+    timing::mark(&format!(
+        "проверка обновления: {}",
+        rel.as_ref().map(|r| r.version.as_str()).unwrap_or("нет")
+    ));
     Ok(rel)
 }
 
 #[tauri::command]
-async fn self_update_apply(app: tauri::AppHandle, state: State<'_, AppState>, release: selfupdate::Release) -> R<()> {
+async fn self_update_apply(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    release: selfupdate::Release,
+) -> R<()> {
     let app2 = app.clone();
     selfupdate::apply(&route::http(), &release, &move |done, total| {
-        let _ = app2.emit("selfupdate-progress", json!({ "done": done, "total": total }));
+        let _ = app2.emit(
+            "selfupdate-progress",
+            json!({ "done": done, "total": total }),
+        );
     })
     .await?;
     state.save_settings();
@@ -1068,21 +1458,34 @@ fn start_prefetch(state: &AppState) {
     let login = s.get("login").and_then(|v| v.as_str()).map(String::from);
     if let Some(login) = login {
         let acc = state.store.load_accounts();
-        if let Some(a) = acc.accounts.iter().find(|a| a.login.eq_ignore_ascii_case(&login)) {
+        if let Some(a) = acc
+            .accounts
+            .iter()
+            .find(|a| a.login.eq_ignore_ascii_case(&login))
+        {
             let token = a.token.clone();
-            p.me = Some((a.login.clone(), tauri::async_runtime::spawn(async move {
-                route::ready().await;
-                let r = api::me(&route::http(), &token).await;
-                timing::mark(&format!("предзагрузка: сессия {}", if r.is_ok() { "ок" } else { "ошибка" }));
-                r
-            })));
+            p.me = Some((
+                a.login.clone(),
+                tauri::async_runtime::spawn(async move {
+                    route::ready().await;
+                    let r = api::me(&route::http(), &token).await;
+                    timing::mark(&format!(
+                        "предзагрузка: сессия {}",
+                        if r.is_ok() { "ок" } else { "ошибка" }
+                    ));
+                    r
+                }),
+            ));
             let token = a.token.clone();
-            p.profiles = Some((a.token.clone(), tauri::async_runtime::spawn(async move {
-                route::ready().await;
-                let r = api::profiles(&route::http(), &token).await;
-                timing::mark("предзагрузка: список серверов");
-                r
-            })));
+            p.profiles = Some((
+                a.token.clone(),
+                tauri::async_runtime::spawn(async move {
+                    route::ready().await;
+                    let r = api::profiles(&route::http(), &token).await;
+                    timing::mark("предзагрузка: список серверов");
+                    r
+                }),
+            ));
             timing::mark("предзагрузка: запросы отправлены");
         }
     }
@@ -1138,11 +1541,39 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            app_init, settings_save, auth_login, auth_2fa_wait, auth_2fa_cancel, auth_restore, auth_remember, auth_logout,
-            profiles_list, server_ping, game_play, game_kill, sync_cancel, build_info, build_delete, build_verify,
-            timing_mark, window_show, window_minimize, window_close, open_url,
-            friends_get, friends_action, notes_action, presence_set, news_get,
-            updates_dir_pick, updates_dir_change, open_path, logs_open, log_error, self_update_check, self_update_apply
+            app_init,
+            settings_save,
+            auth_login,
+            auth_2fa_wait,
+            auth_2fa_cancel,
+            auth_restore,
+            auth_remember,
+            auth_logout,
+            profiles_list,
+            server_ping,
+            game_play,
+            game_kill,
+            sync_cancel,
+            build_info,
+            build_delete,
+            build_verify,
+            timing_mark,
+            window_show,
+            window_minimize,
+            window_close,
+            open_url,
+            friends_get,
+            friends_action,
+            notes_action,
+            presence_set,
+            news_get,
+            updates_dir_pick,
+            updates_dir_change,
+            open_path,
+            logs_open,
+            log_error,
+            self_update_check,
+            self_update_apply
         ])
         .run(tauri::generate_context!())
         .expect("error while running CubeXCraft launcher");
@@ -1155,8 +1586,12 @@ mod build_dir_tests {
     use std::path::PathBuf;
 
     fn tmp_updates() -> PathBuf {
-        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
-        let p = std::env::temp_dir().join(format!("cxl-build-dir-{}-{}", std::process::id(), nanos));
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let p =
+            std::env::temp_dir().join(format!("cxl-build-dir-{}-{}", std::process::id(), nanos));
         std::fs::create_dir_all(&p).unwrap();
         p
     }
@@ -1164,8 +1599,14 @@ mod build_dir_tests {
     #[test]
     fn rejects_unsafe_dir_names() {
         let up = tmp_updates();
-        for d in ["", "   ", ".", "..", "../x", "a/b", "a\\b", "C:\\x", "C:x", "/abs", "assets", "Assets", "JAVA", "libs"] {
-            assert!(build_dir(&up, &json!({ "dir": d })).is_err(), "{d:?} должен быть отклонён");
+        for d in [
+            "", "   ", ".", "..", "../x", "a/b", "a\\b", "C:\\x", "C:x", "/abs", "assets",
+            "Assets", "JAVA", "libs",
+        ] {
+            assert!(
+                build_dir(&up, &json!({ "dir": d })).is_err(),
+                "{d:?} должен быть отклонён"
+            );
         }
         assert!(build_dir(&up, &json!({})).is_err());
         assert!(build_dir(&up, &json!({ "dir": "CubeXTech", "assetDir": "cubextech" })).is_err());

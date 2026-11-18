@@ -23,7 +23,10 @@ fn crashes() -> PathBuf {
 
 /// «2026-10-02_13-50-12» (UTC) - для имён файлов и заголовков
 fn stamp(t: SystemTime) -> String {
-    let s = t.duration_since(SystemTime::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) as i64;
+    let s = t
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0) as i64;
     let (days, rem) = (s.div_euclid(86400), s.rem_euclid(86400));
     // дни от 1970-01-01 -> дата (алгоритм civil_from_days)
     let z = days + 719468;
@@ -35,7 +38,12 @@ fn stamp(t: SystemTime) -> String {
     let d = doy - (153 * mp + 2) / 5 + 1;
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = yoe + era * 400 + if m <= 2 { 1 } else { 0 };
-    format!("{y:04}-{m:02}-{d:02}_{:02}-{:02}-{:02}", rem / 3600, rem % 3600 / 60, rem % 60)
+    format!(
+        "{y:04}-{m:02}-{d:02}_{:02}-{:02}-{:02}",
+        rem / 3600,
+        rem % 3600 / 60,
+        rem % 60
+    )
 }
 
 fn header(f: &mut std::fs::File, what: &str) {
@@ -64,20 +72,36 @@ pub fn save_game_crash(code: i32, client_dir: &Path, started: SystemTime) -> Opt
     std::fs::create_dir_all(&dir).ok()?;
     let name = format!("game-{}.log", stamp(SystemTime::now()));
     let mut f = std::fs::File::create(dir.join(&name)).ok()?;
-    header(&mut f, &format!("Игра завершилась с кодом {code} · {}", stamp(SystemTime::now())));
+    header(
+        &mut f,
+        &format!(
+            "Игра завершилась с кодом {code} · {}",
+            stamp(SystemTime::now())
+        ),
+    );
     // отчёт Minecraft (crash-reports/crash-...-client.txt), созданный за этот запуск
-    let report = std::fs::read_dir(client_dir.join("crash-reports")).ok().and_then(|rd| {
-        rd.flatten()
-            .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
-            .filter(|(t, _)| *t >= started)
-            .max_by_key(|(t, _)| *t)
-            .map(|(_, p)| p)
-    });
+    let report = std::fs::read_dir(client_dir.join("crash-reports"))
+        .ok()
+        .and_then(|rd| {
+            rd.flatten()
+                .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
+                .filter(|(t, _)| *t >= started)
+                .max_by_key(|(t, _)| *t)
+                .map(|(_, p)| p)
+        });
     if let Some(p) = report {
         append_file(&mut f, "отчёт о краше Minecraft", &p);
     }
-    append_file(&mut f, "журнал игры", &dir.parent().unwrap().join("game-latest.log"));
-    append_file(&mut f, "журнал лаунчера", &dir.parent().unwrap().join("launcher.log"));
+    append_file(
+        &mut f,
+        "журнал игры",
+        &dir.parent().unwrap().join("game-latest.log"),
+    );
+    append_file(
+        &mut f,
+        "журнал лаунчера",
+        &dir.parent().unwrap().join("launcher.log"),
+    );
     drop(f);
     prune(&dir, KEEP);
     Some(name)
@@ -118,7 +142,9 @@ fn prune(dir: &Path, keep: usize) {
 }
 
 fn prune_where(dir: &Path, keep: usize, want: impl Fn(&str) -> bool) {
-    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
     let mut files: Vec<(SystemTime, PathBuf)> = rd
         .flatten()
         .filter(|e| e.file_type().map(|t| t.is_file()).unwrap_or(false))
@@ -137,5 +163,7 @@ fn prune_where(dir: &Path, keep: usize, want: impl Fn(&str) -> bool) {
 /// Перед запуском игры: у клиента старые журналы Minecraft (logs/*.log.gz) и отчёты о крашах - последние KEEP.
 pub fn prune_client(client_dir: &Path) {
     prune_where(&client_dir.join("logs"), KEEP, |n| n.ends_with(".log.gz"));
-    prune_where(&client_dir.join("crash-reports"), KEEP, |n| n.ends_with(".txt"));
+    prune_where(&client_dir.join("crash-reports"), KEEP, |n| {
+        n.ends_with(".txt")
+    });
 }

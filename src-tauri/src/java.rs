@@ -16,8 +16,18 @@ pub struct JavaBuild {
 }
 
 pub fn platform() -> String {
-    let os = if cfg!(windows) { "windows" } else if cfg!(target_os = "macos") { "macos" } else { "linux" };
-    let arch = if paths::game_arch() == "arm64" { "arm64" } else { "x64" };
+    let os = if cfg!(windows) {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else {
+        "linux"
+    };
+    let arch = if paths::game_arch() == "arm64" {
+        "arm64"
+    } else {
+        "x64"
+    };
     format!("{os}-{arch}")
 }
 
@@ -50,13 +60,17 @@ fn find_home(dir: &Path) -> Option<PathBuf> {
 
 pub fn installed() -> Option<(String, PathBuf)> {
     let dir = paths::cxl_dir().join("java").join(platform());
-    let marker: JavaBuild = serde_json::from_slice(&std::fs::read(dir.join(".cxl-java.json")).ok()?).ok()?;
+    let marker: JavaBuild =
+        serde_json::from_slice(&std::fs::read(dir.join(".cxl-java.json")).ok()?).ok()?;
     let home = find_home(&dir.join("jre"))?;
     Some((marker.version, java_exe(&home)))
 }
 
 /// Вернуть путь к java. emit(done,total) - прогресс загрузки.
-pub async fn ensure(http: &reqwest::Client, emit: &(dyn Fn(u64, u64) + Send + Sync)) -> Result<PathBuf, String> {
+pub async fn ensure(
+    http: &reqwest::Client,
+    emit: &(dyn Fn(u64, u64) + Send + Sync),
+) -> Result<PathBuf, String> {
     let current = installed();
     let remote: Result<JavaBuild, String> = async {
         let r = http
@@ -87,11 +101,17 @@ pub async fn ensure(http: &reqwest::Client, emit: &(dyn Fn(u64, u64) + Send + Sy
     {
         use futures_util::StreamExt;
         use tokio::io::AsyncWriteExt;
-        let r = http.get(&remote.url).send().await.map_err(|e| e.without_url().to_string())?;
+        let r = http
+            .get(&remote.url)
+            .send()
+            .await
+            .map_err(|e| e.without_url().to_string())?;
         if !r.status().is_success() {
             return Err(format!("Java: HTTP {}", r.status().as_u16()));
         }
-        let mut f = tokio::fs::File::create(&archive).await.map_err(|e| e.to_string())?;
+        let mut f = tokio::fs::File::create(&archive)
+            .await
+            .map_err(|e| e.to_string())?;
         let mut h = Sha1::new();
         let mut got = 0u64;
         let mut s = r.bytes_stream();
@@ -114,12 +134,18 @@ pub async fn ensure(http: &reqwest::Client, emit: &(dyn Fn(u64, u64) + Send + Sy
     let fmt = remote.format.clone();
     let a2 = archive.clone();
     let t2 = tmp.clone();
-    tokio::task::spawn_blocking(move || extract(&a2, &t2, &fmt)).await.map_err(|e| e.to_string())??;
+    tokio::task::spawn_blocking(move || extract(&a2, &t2, &fmt))
+        .await
+        .map_err(|e| e.to_string())??;
     let final_dir = dir.join("jre");
     let _ = std::fs::remove_dir_all(&final_dir);
     std::fs::rename(&tmp, &final_dir).map_err(|e| e.to_string())?;
     let _ = std::fs::remove_file(&archive);
-    std::fs::write(dir.join(".cxl-java.json"), serde_json::to_vec(&remote).unwrap_or_default()).map_err(|e| e.to_string())?;
+    std::fs::write(
+        dir.join(".cxl-java.json"),
+        serde_json::to_vec(&remote).unwrap_or_default(),
+    )
+    .map_err(|e| e.to_string())?;
     let home = find_home(&final_dir).ok_or("Java: в архиве нет bin/java")?;
     Ok(java_exe(&home))
 }
@@ -132,7 +158,9 @@ fn extract(archive: &Path, to: &Path, format: &str) -> Result<(), String> {
         z.extract(to).map_err(|e| e.to_string())?;
     } else {
         let gz = flate2::read::GzDecoder::new(f);
-        tar::Archive::new(gz).unpack(to).map_err(|e| e.to_string())?;
+        tar::Archive::new(gz)
+            .unpack(to)
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }

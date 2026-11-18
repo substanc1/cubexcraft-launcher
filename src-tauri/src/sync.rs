@@ -62,13 +62,25 @@ pub struct SyncStats {
 
 /// пользовательские пути (миры, скриншоты, логи, настройки и т.п.) - лаунчер их не трогает никогда
 pub fn is_user_path(rel: &str) -> bool {
-    let Some((first, _)) = rel.split_once('/') else { return true };
+    let Some((first, _)) = rel.split_once('/') else {
+        return true;
+    };
     if first.starts_with('.') {
         return true;
     }
     const USER_DIRS: [&str; 12] = [
-        "saves", "screenshots", "logs", "crash-reports", "resourcepacks", "shaderpacks", "config", "journeymap",
-        "xaeroworldmap", "xaerowaypoints", "schematics", "local",
+        "saves",
+        "screenshots",
+        "logs",
+        "crash-reports",
+        "resourcepacks",
+        "shaderpacks",
+        "config",
+        "journeymap",
+        "xaeroworldmap",
+        "xaerowaypoints",
+        "schematics",
+        "local",
     ];
     let lower = first.to_ascii_lowercase();
     USER_DIRS.contains(&lower.as_str())
@@ -80,7 +92,9 @@ pub fn should_deep_remove(rel: &str, manifest_top_dirs: &HashSet<String>) -> boo
     if is_user_path(rel) {
         return false;
     }
-    rel.split_once('/').map(|(first, _)| manifest_top_dirs.contains(first)).unwrap_or(false)
+    rel.split_once('/')
+        .map(|(first, _)| manifest_top_dirs.contains(first))
+        .unwrap_or(false)
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -102,7 +116,10 @@ pub struct Index {
 
 impl Index {
     pub fn load(path: &Path) -> Index {
-        std::fs::read(path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+        std::fs::read(path)
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .unwrap_or_default()
     }
     pub fn save(&self, path: &Path) {
         let tmp = path.with_extension("tmp");
@@ -117,7 +134,12 @@ fn stat(p: &Path) -> Option<(u64, u128)> {
     if !m.is_file() {
         return None;
     }
-    let mt = m.modified().ok()?.duration_since(UNIX_EPOCH).ok()?.as_nanos();
+    let mt = m
+        .modified()
+        .ok()?
+        .duration_since(UNIX_EPOCH)
+        .ok()?
+        .as_nanos();
     Some((m.len(), mt))
 }
 
@@ -152,14 +174,27 @@ pub struct Syncer {
 
 impl Syncer {
     /// Привести каталог root к манифесту. emit - прогресс (вызывается не чаще ~10 раз/с).
-    pub async fn sync(&self, m: &Manifest, root: &Path, rules: &Rules, emit: &(dyn Fn(Progress) + Send + Sync)) -> Result<SyncStats, String> {
+    pub async fn sync(
+        &self,
+        m: &Manifest,
+        root: &Path,
+        rules: &Rules,
+        emit: &(dyn Fn(Progress) + Send + Sync),
+    ) -> Result<SyncStats, String> {
         std::fs::create_dir_all(root).map_err(|e| format!("{}: {e}", root.display()))?;
         // 1. проверка: что качать
-        let entries: Vec<(String, u64, String)> = m.files.iter().map(|(k, (s, h))| (k.clone(), *s, h.clone())).collect();
+        let entries: Vec<(String, u64, String)> = m
+            .files
+            .iter()
+            .map(|(k, (s, h))| (k.clone(), *s, h.clone()))
+            .collect();
         let total_check = entries.len() as u64;
         let checked = Arc::new(AtomicU64::new(0));
         let need: Arc<Mutex<Vec<Job>>> = Arc::new(Mutex::new(Vec::new()));
-        let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(2, 16);
+        let threads = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+            .clamp(2, 16);
         let chunks: Vec<Vec<(String, u64, String)>> = {
             let mut c: Vec<Vec<_>> = (0..threads).map(|_| Vec::new()).collect();
             for (i, e) in entries.into_iter().enumerate() {
@@ -193,13 +228,23 @@ impl Syncer {
                         Some((s, mt)) => {
                             // use_cache: файл не в списке verify - доверяем кэшу sha1, пока размер и mtime не менялись; иначе хэш пересчитывается
                             // force_hash: кэш index не используется, sha1 считается заново для каждого файла (режим «всё заново»)
-                            let cached = if rules.force_hash { None } else { index.lock().unwrap().files.get(&key).cloned() };
+                            let cached = if rules.force_hash {
+                                None
+                            } else {
+                                index.lock().unwrap().files.get(&key).cloned()
+                            };
                             let use_cache = !rules.should_verify(&rel);
                             match cached {
-                                Some((cs, cm, ch)) if use_cache && cs == s && cm == mt => ch == sha1,
+                                Some((cs, cm, ch)) if use_cache && cs == s && cm == mt => {
+                                    ch == sha1
+                                }
                                 _ => match sha1_file(&dest) {
                                     Ok(h) => {
-                                        index.lock().unwrap().files.insert(key.clone(), (s, mt, h.clone()));
+                                        index
+                                            .lock()
+                                            .unwrap()
+                                            .files
+                                            .insert(key.clone(), (s, mt, h.clone()));
                                         h == sha1
                                     }
                                     Err(_) => false,
@@ -208,7 +253,13 @@ impl Syncer {
                         }
                     };
                     if !ok {
-                        need.lock().unwrap().push(Job { url: format!("{base}{}", crate::api::urlencode(&rel)), rel, dest, size, sha1 });
+                        need.lock().unwrap().push(Job {
+                            url: format!("{base}{}", crate::api::urlencode(&rel)),
+                            rel,
+                            dest,
+                            size,
+                            sha1,
+                        });
                     }
                     checked.fetch_add(1, Ordering::Relaxed);
                 }
@@ -235,7 +286,10 @@ impl Syncer {
             let mut local = Vec::new();
             walk(root, root, &mut local);
             let tops: HashSet<String> = if rules.deep_clean {
-                m.files.keys().filter_map(|k| k.split_once('/').map(|(t, _)| t.to_string())).collect()
+                m.files
+                    .keys()
+                    .filter_map(|k| k.split_once('/').map(|(t, _)| t.to_string()))
+                    .collect()
             } else {
                 HashSet::new()
             };
@@ -246,7 +300,8 @@ impl Syncer {
                 let gone = if let Some(target) = rel.strip_suffix(".cxl-part") {
                     rules.deep_clean && !m.files.contains_key(target) && !is_user_path(&rel)
                 } else {
-                    (rules.delete_extra && rules.should_update(&rel)) || (rules.deep_clean && should_deep_remove(&rel, &tops))
+                    (rules.delete_extra && rules.should_update(&rel))
+                        || (rules.deep_clean && should_deep_remove(&rel, &tops))
                 };
                 if gone && std::fs::remove_file(root.join(&rel)).is_ok() {
                     removed += 1;
@@ -281,7 +336,10 @@ impl Syncer {
                     match download(&http, &j, &done, &cancel).await {
                         Ok(()) => {
                             if let Some((s, mt)) = stat(&j.dest) {
-                                index.lock().unwrap().files.insert(j.dest.to_string_lossy().to_string(), (s, mt, j.sha1.clone()));
+                                index.lock().unwrap().files.insert(
+                                    j.dest.to_string_lossy().to_string(),
+                                    (s, mt, j.sha1.clone()),
+                                );
                             }
                             files_done.fetch_add(1, Ordering::Relaxed);
                             return Ok(());
@@ -291,7 +349,10 @@ impl Syncer {
                             let now = done.load(Ordering::Relaxed);
                             done.fetch_sub(now.saturating_sub(before), Ordering::Relaxed);
                             last_err = e;
-                            tokio::time::sleep(Duration::from_millis(u64::from((500 * (attempt + 1)).min(5000)))).await;
+                            tokio::time::sleep(Duration::from_millis(u64::from(
+                                (500 * (attempt + 1)).min(5000),
+                            )))
+                            .await;
                         }
                     }
                 }
@@ -316,21 +377,45 @@ impl Syncer {
                 let d = done.load(Ordering::Relaxed);
                 let secs = started.elapsed().as_secs_f64().max(0.001);
                 emit(Progress {
-                    phase: "download", done: d, total, files_done: files_done.load(Ordering::Relaxed), files_total,
-                    file: current.lock().unwrap().clone(), speed: d as f64 / secs,
+                    phase: "download",
+                    done: d,
+                    total,
+                    files_done: files_done.load(Ordering::Relaxed),
+                    files_total,
+                    file: current.lock().unwrap().clone(),
+                    speed: d as f64 / secs,
                 });
             }
         }
         result?;
-        emit(Progress { phase: "done", done: total, total, files_done: files_total, files_total, file: String::new(), speed: 0.0 });
-        Ok(SyncStats { checked: total_check, downloaded: files_total, removed })
+        emit(Progress {
+            phase: "done",
+            done: total,
+            total,
+            files_done: files_total,
+            files_total,
+            file: String::new(),
+            speed: 0.0,
+        });
+        Ok(SyncStats {
+            checked: total_check,
+            downloaded: files_total,
+            removed,
+        })
     }
 }
 
-async fn download(http: &reqwest::Client, j: &Job, done: &AtomicU64, cancel: &AtomicBool) -> Result<(), String> {
+async fn download(
+    http: &reqwest::Client,
+    j: &Job,
+    done: &AtomicU64,
+    cancel: &AtomicBool,
+) -> Result<(), String> {
     use tokio::io::AsyncWriteExt;
     if let Some(p) = j.dest.parent() {
-        tokio::fs::create_dir_all(p).await.map_err(|e| e.to_string())?;
+        tokio::fs::create_dir_all(p)
+            .await
+            .map_err(|e| e.to_string())?;
     }
     let part = PathBuf::from(format!("{}.cxl-part", j.dest.to_string_lossy()));
     // Докачка: часть, оставшаяся от оборванной попытки, продолжается с места обрыва (Range), а не с нуля —
@@ -343,7 +428,9 @@ async fn download(http: &reqwest::Client, j: &Job, done: &AtomicU64, cancel: &At
     // по которому STALL секунд не пришло ни байта.
     let mut req = http.get(&j.url).timeout(Duration::from_secs(24 * 3600));
     if have > 0 {
-        req = req.header(reqwest::header::RANGE, format!("bytes={have}-")).header(reqwest::header::ACCEPT_ENCODING, "identity");
+        req = req
+            .header(reqwest::header::RANGE, format!("bytes={have}-"))
+            .header(reqwest::header::ACCEPT_ENCODING, "identity");
     }
     let r = req.send().await.map_err(|e| e.without_url().to_string())?;
     if !r.status().is_success() {
@@ -357,9 +444,15 @@ async fn download(http: &reqwest::Client, j: &Job, done: &AtomicU64, cancel: &At
         h.update(&old);
         got = old.len() as u64;
         done.fetch_add(got, Ordering::Relaxed);
-        tokio::fs::OpenOptions::new().append(true).open(&part).await.map_err(|e| e.to_string())?
+        tokio::fs::OpenOptions::new()
+            .append(true)
+            .open(&part)
+            .await
+            .map_err(|e| e.to_string())?
     } else {
-        tokio::fs::File::create(&part).await.map_err(|e| e.to_string())?
+        tokio::fs::File::create(&part)
+            .await
+            .map_err(|e| e.to_string())?
     };
     let mut stream = r.bytes_stream();
     loop {
@@ -368,7 +461,10 @@ async fn download(http: &reqwest::Client, j: &Job, done: &AtomicU64, cancel: &At
             Ok(None) => break,
             Err(_) => {
                 f.flush().await.ok();
-                return Err(format!("нет данных {STALL} с ({got}/{} байт), докачаю", j.size));
+                return Err(format!(
+                    "нет данных {STALL} с ({got}/{} байт), докачаю",
+                    j.size
+                ));
             }
         };
         if cancel.load(Ordering::Relaxed) {
@@ -393,18 +489,25 @@ async fn download(http: &reqwest::Client, j: &Job, done: &AtomicU64, cancel: &At
     let hash = hex::encode(h.finalize());
     if got != j.size || hash != j.sha1 {
         let _ = tokio::fs::remove_file(&part).await;
-        return Err(format!("контрольная сумма не совпала ({got}/{} байт)", j.size));
+        return Err(format!(
+            "контрольная сумма не совпала ({got}/{} байт)",
+            j.size
+        ));
     }
     // замена: rename поверх существующего (на Windows MoveFileEx REPLACE_EXISTING)
     if tokio::fs::rename(&part, &j.dest).await.is_err() {
         let _ = tokio::fs::remove_file(&j.dest).await;
-        tokio::fs::rename(&part, &j.dest).await.map_err(|e| e.to_string())?;
+        tokio::fs::rename(&part, &j.dest)
+            .await
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
 
 fn walk(root: &Path, dir: &Path, out: &mut Vec<String>) {
-    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
     for e in rd.flatten() {
         let p = e.path();
         let Ok(ft) = e.file_type() else { continue };
@@ -419,7 +522,9 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<String>) {
 }
 
 fn remove_empty_dirs(root: &Path, dir: &Path, rules: &Rules) -> bool {
-    let Ok(rd) = std::fs::read_dir(dir) else { return false };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return false;
+    };
     let mut empty = true;
     for e in rd.flatten() {
         let p = e.path();
@@ -432,7 +537,10 @@ fn remove_empty_dirs(root: &Path, dir: &Path, rules: &Rules) -> bool {
         }
     }
     if empty && dir != root {
-        let rel = dir.strip_prefix(root).map(|r| r.to_string_lossy().replace('\\', "/")).unwrap_or_default();
+        let rel = dir
+            .strip_prefix(root)
+            .map(|r| r.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
         if rules.should_update(&rel) {
             return std::fs::remove_dir(dir).is_ok();
         }
@@ -443,7 +551,14 @@ fn remove_empty_dirs(root: &Path, dir: &Path, rules: &Rules) -> bool {
 
 pub fn rules_from_profile(p: &serde_json::Value) -> Rules {
     let list = |k: &str| -> Vec<String> {
-        p.get(k).and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default()
+        p.get(k)
+            .and_then(|v| v.as_array())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default()
     };
     Rules {
         update: list("update"),
@@ -461,13 +576,21 @@ mod tests {
     use super::*;
 
     fn tops(keys: &[&str]) -> HashSet<String> {
-        keys.iter().filter_map(|k| k.split_once('/').map(|(t, _)| t.to_string())).collect()
+        keys.iter()
+            .filter_map(|k| k.split_once('/').map(|(t, _)| t.to_string()))
+            .collect()
     }
 
     #[test]
     fn is_user_path_cases() {
-        assert!(is_user_path("options.txt"), "корневой файл - пользовательский");
-        assert!(is_user_path(".minecraft/x"), "точечная папка - пользовательская");
+        assert!(
+            is_user_path("options.txt"),
+            "корневой файл - пользовательский"
+        );
+        assert!(
+            is_user_path(".minecraft/x"),
+            "точечная папка - пользовательская"
+        );
         assert!(is_user_path("saves/world/level.dat"));
         assert!(is_user_path("Saves/world/level.dat"), "регистр не важен");
         assert!(is_user_path("Config/x.toml"), "регистр не важен");
@@ -478,7 +601,13 @@ mod tests {
     fn should_deep_remove_cases() {
         let t = tops(&["mods/a.jar", "natives/x.so"]);
         assert!(should_deep_remove("mods/foo.jar", &t));
-        assert!(!should_deep_remove("config/x", &tops(&["config/y.toml"])), "config - пользовательская папка");
-        assert!(!should_deep_remove("unknown/x", &t), "такой папки нет в манифесте");
+        assert!(
+            !should_deep_remove("config/x", &tops(&["config/y.toml"])),
+            "config - пользовательская папка"
+        );
+        assert!(
+            !should_deep_remove("unknown/x", &t),
+            "такой папки нет в манифесте"
+        );
     }
 }
