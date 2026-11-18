@@ -970,8 +970,8 @@ fn log_error(msg: String) {
 // ---------------------------------------------------------------- новости сайта и голосование (правая колонка)
 
 #[tauri::command]
-async fn news_get(limit: Option<u32>) -> R<Value> {
-    api::news(&route::http(), limit).await.map_err(String::from)
+async fn news_get(limit: Option<u32>, lang: Option<String>) -> R<Value> {
+    api::news(&route::http(), limit, lang).await.map_err(String::from)
 }
 
 // ---------------------------------------------------------------- друзья (launcher-friends.js на сайте)

@@ -1,10 +1,10 @@
 <script>
   // scenes/servermenu/servermenu.fxml + ServerMenuScene + components/userBlock.fxml/UserBlock
   import './servermenu.css';
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { app, t, switchScene, processRequest, showApplyDialog, saveSettings, startDrag, errorHandle, notify } from '../lib/app.svelte.js';
   import { call } from '../lib/backend.js';
-  import { i18n, LOCALES, dateLocale } from '../lib/i18n.svelte.js';
+  import { i18n, LOCALES, dateLocale, langCode } from '../lib/i18n.svelte.js';
   import { play, verifyBuild } from '../lib/play.js';
   import IconButton from '../components/IconButton.svelte';
   import CutButton from '../components/CutButton.svelte';
@@ -71,11 +71,17 @@
       saveSettings();
     }
   }
+  // язык новостей: сайт отдаёт ru, en, uk; be и pl - русский (ядро тоже пропускает только ru/en/uk)
+  const newsLang = () => {
+    const c = langCode();
+    return c === 'en' || c === 'uk' ? c : 'ru';
+  };
   async function loadNews() {
     if (newsBusy) return;
     newsBusy = true;
+    const reqLang = newsLang();
     try {
-      const v = await call('news_get', { limit: NEWS_LIMIT });
+      const v = await call('news_get', { limit: NEWS_LIMIT, lang: reqLang });
       news = (v && v.news) || [];
       vote = v && v.vote && v.vote.url ? v.vote : v && v.voteUrl ? { url: v.voteUrl } : null;
       newsState = 'ok';
@@ -87,8 +93,17 @@
       if (!news.length) newsState = 'error';
     } finally {
       newsBusy = false;
+      // язык сменили во время загрузки: запрос шёл на старом языке - догружаем на новом
+      if (reqLang !== newsLang()) loadNews();
     }
   }
+  // смена языка лаунчера - новости заново на нужном языке (первый проход не дублирует загрузку из onMount)
+  let newsLoadedLang = null;
+  $effect(() => {
+    const code = newsLang();
+    if (newsLoadedLang !== null && code !== newsLoadedLang) untrack(() => loadNews());
+    newsLoadedLang = code;
+  });
   async function openArticle(id) {
     navTo('news');
     focusNews = id;
