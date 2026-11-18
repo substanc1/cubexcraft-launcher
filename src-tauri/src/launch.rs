@@ -1,4 +1,4 @@
-// Сборка командной строки игры - как GravitLauncher ClientLauncherProcess.start + ClientParams.addModernClientArgs
+// Сборка командной строки запуска игры: JVM-аргументы, classpath, аргументы клиента.
 // (режим SYSTEM_ARGS, moduleConf, HIDE_SYSTEM_ARGS_CLASSPATH), но без промежуточного ClientLauncherEntryPoint:
 // сразу mainClass профиля (BootstrapLauncher), обычный authlib + -Dminecraft.api.* (их добавляет сервер в jvmArgs).
 use crate::paths;
@@ -245,7 +245,7 @@ pub fn build_args(p: &LaunchParams) -> Vec<String> {
     if relay {
         cp.push(relay_jar.to_string_lossy().to_string());
     }
-    // Gravit клал classPath и altClassPath в разные места (HIDE_SYSTEM_ARGS_CLASSPATH), у нас всё в одном -cp:
+    // Весь classpath - в одном -cp, без отдельного altClassPath:
     // jar из обоих списков (cxc-mcversion.jar) дал бы «Duplicate key» в securejarhandler BootstrapLauncher
     let mut seen = std::collections::HashSet::new();
     cp.retain(|c| seen.insert(c.to_lowercase()));

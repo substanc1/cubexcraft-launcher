@@ -1,5 +1,5 @@
-// Каталоги лаунчера - те же, что у старого (GravitLauncher DirBridge.getAppDataDir + projectName),
-// чтобы подхватить уже скачанные клиенты (updates/) и данные без повторной загрузки:
+// Каталоги данных лаунчера. Пути сохранены с прежней версии лаунчера, чтобы подхватывать уже скачанные клиенты
+// (updates/) и данные без повторной загрузки:
 //   Windows: %APPDATA%\CubeXCraft,  Linux: ~/.minecraftlauncher/CubeXCraft,  macOS: ~/minecraft/CubeXCraft
 use std::path::PathBuf;
 
@@ -53,7 +53,7 @@ pub fn game_arch() -> &'static str {
     }
 }
 
-/// os/arch в терминах папки natives клиента (Gravit JVMHelper: mustdie|linux|macosx / x86-64|arm64)
+/// имя OS в пути natives клиента: mustdie (Windows), linux, macosx; значение mustdie не менять - это имя папки natives
 pub fn natives_os() -> &'static str {
     if cfg!(windows) {
         "mustdie"
