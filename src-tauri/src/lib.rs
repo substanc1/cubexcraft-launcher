@@ -1432,6 +1432,8 @@ fn start_prefetch(state: &AppState) {
 }
 
 pub fn run() {
+    // до окна: дождаться выхода старого процесса (--wait-pid) и убрать *.old после самообновления
+    selfupdate::on_startup();
     timing::init();
     route::init();
     let store = Store::open();
