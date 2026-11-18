@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "tauri": "tauri",
-    "build:win": "tauri build --no-bundle --target x86_64-pc-windows-msvc"
+    "build:win": "tauri build --no-bundle --target x86_64-pc-windows-msvc",
+    "i18n:check": "node scripts/i18n-check.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2"
