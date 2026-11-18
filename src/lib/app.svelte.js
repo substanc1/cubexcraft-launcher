@@ -1,6 +1,6 @@
 // Общее состояние лаунчера (аналог JavaFXApplication + FxStage: текущая сцена, оверлеи, уведомления).
 import { call, inTauri } from './backend.js';
-import { t, requestError } from './i18n.svelte.js';
+import { t, requestError, i18n } from './i18n.svelte.js';
 
 // размеры сцен = prefWidth/prefHeight корневых FXML старого лаунчера (окно подгоняется, как stage.sizeToScene())
 // одно окно на все экраны (раньше вход/настройки/загрузка/лог были 930x560 и окно меняло размер при каждом переходе)
@@ -128,6 +128,15 @@ export function showApplyDialog(header, text, onApply, onDeny) {
 
 export async function saveSettings() {
   if (app.settings) await call('settings_save', { settings: $state.snapshot(app.settings) });
+}
+
+// Смена языка лаунчера: общая для настроек и переключателя в шапке меню серверов.
+// Источник правды - app.settings.locale; i18n.locale меняем сразу, чтобы t() перерисовался.
+export function setLocale(id) {
+  if (!app.settings || id === app.settings.locale) return;
+  app.settings.locale = id;
+  i18n.locale = id;
+  saveSettings();
 }
 
 // FxStage.enableMouseDrag: окно тянется за любую "пустую" область (не поле ввода/кнопку/ссылку)

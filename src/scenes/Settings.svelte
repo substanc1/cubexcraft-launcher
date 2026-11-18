@@ -1,8 +1,8 @@
 <script>
   // scenes/settings/globalsettings.fxml + GlobalSettingsScene/BaseSettingsScene/LanguageSelector
   import './settings.css';
-  import { app, t, back, saveSettings, startDrag, errorHandle, notify } from '../lib/app.svelte.js';
-  import { i18n, LOCALES } from '../lib/i18n.svelte.js';
+  import { app, t, back, saveSettings, startDrag, errorHandle, notify, setLocale } from '../lib/app.svelte.js';
+  import { LOCALES } from '../lib/i18n.svelte.js';
   import { call } from '../lib/backend.js';
   import { applyTheme, hexToRgb, hsb, fitAccent, fitBackground, fitText, fitLines, DEFAULTS } from '../lib/theme.js';
   import IconButton from '../components/IconButton.svelte';
@@ -61,13 +61,6 @@
     if (!rgb) return;
     setColor(key, fit(rgb));
     openPicker = null;
-  }
-  function setLocale(id) {
-    langOpen = false;
-    if (id === s.locale) return;
-    s.locale = id;
-    i18n.locale = id;
-    saveSettings();
   }
 
   async function changeDir() {
@@ -164,7 +157,7 @@
             {#if langOpen}
               <div class="st-comboList">
                 {#each LOCALES as l}
-                  <button type="button" class="st-comboItem" class:selected={l.id === (s.locale || 'RUSSIAN')} onclick={() => setLocale(l.id)}>{l.name}</button>
+                  <button type="button" class="st-comboItem" class:selected={l.id === (s.locale || 'RUSSIAN')} onclick={() => { langOpen = false; setLocale(l.id); }}>{l.name}</button>
                 {/each}
               </div>
             {/if}

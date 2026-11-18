@@ -10,6 +10,7 @@
   import CutButton from '../components/CutButton.svelte';
   import Avatar from '../components/Avatar.svelte';
   import AccountMenu from '../components/AccountMenu.svelte';
+  import LanguageSwitcher from '../components/LanguageSwitcher.svelte';
   import FriendsPopup from '../components/FriendsPopup.svelte';
   import { friends, openFriends, friendsOnLogin, statusText } from '../lib/friends.svelte.js';
   import { tooltip } from '../lib/tooltip.js';
@@ -297,6 +298,7 @@
         <input class="sm-search" bind:value={search} placeholder={t(nav === 'news' ? 'scenes.servermenu.newsSearch' : 'scenes.servermenu.search')} spellcheck="false" />
         <span class="sm-searchGlyph">⌕</span>
       </label>
+      <LanguageSwitcher />
     </div>
     <div class="sm-userBlock">
       <button type="button" class="sm-userCard" onclick={e => (menuAnchor = e.currentTarget.getBoundingClientRect())} data-no-drag>
