@@ -1,5 +1,5 @@
 // AES-256-GCM: base64(nonce12 | шифр | tag16),
-// ключ - 32 случайных байта в файле рядом. Так же читаются remembered.dat/quick.dat старого лаунчера (ключ cxc.key).
+// ключ - 32 случайных байта в файле key.bin (store.rs).
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Nonce};
 use base64::engine::general_purpose::STANDARD as B64;
@@ -46,8 +46,4 @@ pub fn decrypt(key: &[u8; 32], b64: &str) -> Option<Vec<u8>> {
     cipher
         .decrypt(Nonce::from_slice(&raw[..12]), &raw[12..])
         .ok()
-}
-
-pub fn b64_decode_str(s: &str) -> Option<String> {
-    String::from_utf8(B64.decode(s.trim()).ok()?).ok()
 }

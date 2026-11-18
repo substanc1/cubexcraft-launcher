@@ -1,4 +1,4 @@
-// HTTP-клиент к своему API на сайте (website/launcher-api.js) вместо WebSocket LaunchServer.
+// HTTP-клиент к API лаунчера на сайте (website/launcher-api.js).
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

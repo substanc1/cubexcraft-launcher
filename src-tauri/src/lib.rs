@@ -1,13 +1,11 @@
 // CubeXCraft Launcher - ядро (Rust/Tauri). Интерфейс - app/src (Svelte), общение через invoke-команды и события.
 mod api;
-mod cleanup;
 mod crypto;
 mod gamewindow;
 mod horizon;
 mod java;
 mod launch;
 mod logs;
-mod migrate;
 mod paths;
 mod ping;
 mod route;
@@ -79,21 +77,6 @@ fn device() -> String {
 }
 
 impl AppState {
-    /// разовая уборка за старым лаунчером после первого успешного входа (cleanup.rs)
-    fn cleanup_gravit_once(&self) {
-        let mut s = self.settings.lock().unwrap();
-        if s.get("gravitCleaned")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            return;
-        }
-        s["gravitCleaned"] = json!(true);
-        drop(s);
-        self.save_settings();
-        std::thread::spawn(cleanup::run);
-    }
-
     fn save_settings(&self) {
         let s = self.settings.lock().unwrap().clone();
         let _ = self.store.save_settings(&s);
@@ -185,47 +168,7 @@ impl AppState {
 
 #[tauri::command]
 async fn app_init(state: State<'_, AppState>) -> R<Value> {
-    // первый запуск: перенос настроек и аккаунтов со старого лаунчера
     if !state.store.has_settings() {
-        if let Some(m) = migrate::read_old() {
-            *state.settings.lock().unwrap() = store::with_defaults(m.settings);
-            for c in m.credentials {
-                // "skip": с включённой 2FA аккаунт не переносится молча (без запроса в бот) - игрок войдёт сам
-                if let Ok(api::LoginOutcome::Done(token, user)) =
-                    api::login(&route::http(), &c.login, &c.password, &device(), "skip").await
-                {
-                    state.remember(&c.login, &token, &user);
-                }
-            }
-            // основной аккаунт - первым в быстром списке
-            let main = state
-                .settings
-                .lock()
-                .unwrap()
-                .get("login")
-                .and_then(|v| v.as_str())
-                .map(String::from);
-            if let Some(login) = main {
-                let acc = state.store.load_accounts();
-                if let Some(a) = acc
-                    .accounts
-                    .iter()
-                    .find(|a| a.login.eq_ignore_ascii_case(&login))
-                    .cloned()
-                {
-                    state.remember(
-                        &a.login,
-                        &a.token,
-                        &api::User {
-                            uuid: a.uuid,
-                            username: a.username,
-                            skin: None,
-                            cloak: None,
-                        },
-                    );
-                }
-            }
-        }
         state.save_settings();
     }
     let accounts = state.store.load_accounts();
@@ -275,7 +218,6 @@ async fn auth_login(state: State<'_, AppState>, login: String, password: String)
         api::LoginOutcome::Done(token, user) => {
             let out = user_json(&user);
             *state.session.lock().unwrap() = Some(Session { login, token, user });
-            state.cleanup_gravit_once();
             Ok(out)
         }
         api::LoginOutcome::TwoFa(tf) => {
@@ -309,7 +251,6 @@ async fn auth_2fa_wait(state: State<'_, AppState>, challenge: String) -> R<Value
                 *state.twofa.lock().unwrap() = None;
                 let out = user_json(&user);
                 *state.session.lock().unwrap() = Some(Session { login, token, user });
-                state.cleanup_gravit_once();
                 return Ok(out);
             }
             Err(e) => {
@@ -367,7 +308,6 @@ async fn auth_restore(state: State<'_, AppState>, login: String) -> R<Value> {
                 token: a.token,
                 user,
             });
-            state.cleanup_gravit_once();
             Ok(out)
         }
         Err(e) => {
@@ -1492,9 +1432,6 @@ fn start_prefetch(state: &AppState) {
 }
 
 pub fn run() {
-    if selfupdate::on_startup() {
-        return; // обновление со старого лаунчера поставлено, запущен установленный exe
-    }
     timing::init();
     route::init();
     let store = Store::open();
