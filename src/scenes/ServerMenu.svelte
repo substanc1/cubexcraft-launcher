@@ -33,7 +33,8 @@
     '")';
 
   let nav = $state('servers');
-  let navLabel = $state(t('scenes.servermenu.nav.servers'));
+  let navKey = $state('servers'); // плашка у лого: ключ, а текст — от языка (SCRUM-691)
+  let navLabel = $derived(t('scenes.servermenu.nav.' + navKey));
   let search = $state('');
   let filter = $state('ALL');
   let modsExpanded = $state(false);
@@ -251,10 +252,10 @@
     nav = which;
     if (which === 'servers') {
       mainScroll.scrollTop = 0;
-      navLabel = t('scenes.servermenu.nav.servers');
+      navKey = 'servers';
     } else if (which === 'friends') {
       sideScroll.scrollTop = friendsSection.offsetTop - sideScroll.offsetTop;
-      navLabel = t('scenes.servermenu.nav.friends');
+      navKey = 'friends';
     } else if (which === 'news') {
       // своя страница в основной колонке; лента старше минуты — подтянуть свежую
       mainScroll.scrollTop = 0;
@@ -262,7 +263,7 @@
       newsSeenPrev = app.settings?.newsSeen ?? null;
       markNewsSeen();
       if (Date.now() - newsAt > 60000) loadNews();
-      navLabel = t('scenes.servermenu.nav.news');
+      navKey = 'news';
     }
   }
 
