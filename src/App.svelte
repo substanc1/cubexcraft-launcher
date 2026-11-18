@@ -23,7 +23,12 @@
   let ready = $state(false);
   let updateCheck = null;
 
+  // SCRUM-665: окно фиксированное, но webview бывает увеличен (зум WebView2/масштаб Windows) - ужимаем под реальный viewport
+  let fit = $state(1);
+  const refit = () => { fit = Math.min(1, innerWidth / WINDOW_SIZE[0], innerHeight / WINDOW_SIZE[1]) || 1; };
+
   onMount(async () => {
+    refit(); addEventListener('resize', refit);
     try {
       initGameEvents();
       initFriends();
@@ -63,7 +68,7 @@
 
 {#if ready}
   <div class="window" class:freeze={import.meta.env.DEV && new URLSearchParams(location.search).has('freeze')}
-       style="width:{WINDOW_SIZE[0]}px;height:{WINDOW_SIZE[1]}px">
+       style="width:{WINDOW_SIZE[0]}px;height:{WINDOW_SIZE[1]}px;zoom:{fit}">
     <div class="sceneWrap" class:blurred={app.blurred} class:calm={app.settings && app.settings.reduceEffects}>
       <!-- каждый экран - свой слой: новый проявляется поверх старого (lib/transitions.js) -->
       {#key app.scene + ':' + app.sceneNonce}
