@@ -1,8 +1,7 @@
 <script>
   // scenes/settings/globalsettings.fxml + GlobalSettingsScene/BaseSettingsScene/LanguageSelector
   import './settings.css';
-  import { app, t, back, saveSettings, startDrag, errorHandle, notify, setLocale } from '../lib/app.svelte.js';
-  import { LOCALES } from '../lib/i18n.svelte.js';
+  import { app, t, back, saveSettings, startDrag, errorHandle, notify } from '../lib/app.svelte.js';
   import { call } from '../lib/backend.js';
   import { applyTheme, hexToRgb, hsb, fitAccent, fitBackground, fitText, fitLines, DEFAULTS } from '../lib/theme.js';
   import IconButton from '../components/IconButton.svelte';
@@ -30,7 +29,6 @@
   const ramWidth = label => Math.ceil(label.length * 6.6 + 34);
   let openPicker = $state(null);
   let hex = $state('');
-  let langOpen = $state(false);
 
   function toggle(key) {
     s[key] = !s[key];
@@ -78,7 +76,6 @@
 <svelte:window
   onmousedown={e => {
     if (!e.target.closest('.st-picker, .st-swatchBtn')) openPicker = null;
-    if (!e.target.closest('.st-combo')) langOpen = false;
   }}
 />
 
@@ -165,35 +162,6 @@
           {/each}
           <div class="st-row">
             <button type="button" class="st-action" onclick={resetColors}>{t('scenes.settings.properties.resetcolors.name')}</button>
-          </div>
-        </div>
-
-        <div class="st-lang">
-          <span class="st-h">{t('scenes.settings.header.language')}</span>
-          <div class="st-langRow">
-            <div class="st-combo" use:tooltip={(LOCALES.find(l => l.id === s.locale) || LOCALES[0]).name}>
-              <button type="button" class="st-comboBtn" onclick={() => (langOpen = !langOpen)}>
-                <span>{(LOCALES.find(l => l.id === (s.locale || 'RUSSIAN')) || LOCALES[0]).name}</span>
-              </button>
-              {#if langOpen}
-                <div class="st-comboList">
-                  {#each LOCALES as l}
-                    <button
-                      type="button"
-                      class="st-comboItem"
-                      class:selected={l.id === (s.locale || 'RUSSIAN')}
-                      onclick={() => {
-                        langOpen = false;
-                        setLocale(l.id);
-                      }}
-                    >
-                      {l.name}
-                    </button>
-                  {/each}
-                </div>
-              {/if}
-            </div>
-            <span class="st-ld st-langDesc">{t('scenes.settings.languageDesc')}</span>
           </div>
         </div>
 

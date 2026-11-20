@@ -1,6 +1,6 @@
 [package]
 name = "cubexcraft-launcher"
-version = "1.4.5"
+version = "1.4.6"
 description = "CubeXCraft Launcher"
 edition = "2021"
 license-file = "../LICENSE"
