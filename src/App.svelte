@@ -1,7 +1,8 @@
 <script>
   import { onMount, tick } from 'svelte';
   import { app, WINDOW_SIZE, switchScene, errorHandle, t } from './lib/app.svelte.js';
-  import { call } from './lib/backend.js';
+  import { call, inTauri } from './lib/backend.js';
+  import { getVersion } from '@tauri-apps/api/app';
   import { applyTheme } from './lib/theme.js';
   import Login from './scenes/Login.svelte';
   import ServerMenu from './scenes/ServerMenu.svelte';
@@ -22,6 +23,7 @@
   const scenes = { login: Login, servermenu: ServerMenu, settings: Settings, update: Update, debug: Debug };
   let ready = $state(false);
   let updateCheck = null;
+  let appVersion = $state('');
 
   // SCRUM-665: окно фиксированное, но webview бывает увеличен (зум WebView2/масштаб Windows) - ужимаем под реальный viewport
   let fit = $state(1);
@@ -30,6 +32,7 @@
   };
 
   onMount(async () => {
+    (inTauri ? getVersion() : Promise.resolve('dev')).then((v) => (appVersion = v)).catch(() => {});
     refit();
     addEventListener('resize', refit);
     try {
@@ -83,6 +86,7 @@
         </div>
       {/key}
     </div>
+    {#if appVersion}<div class="appVersion">v{appVersion}</div>{/if}
     {#if app.selfUpdate}<SelfUpdate />{/if}
     <AddAccount />
     <Dialog />
@@ -122,4 +126,5 @@
     font-family: 'JetBrains Mono';
     color: var(--text-secondary);
   }
+  .appVersion { position: absolute; right: 10px; bottom: 6px; z-index: 2; font: 10px/1 'JetBrains Mono', monospace; color: var(--text-secondary); opacity: .6; pointer-events: none; user-select: none; text-shadow: none; }
 </style>
