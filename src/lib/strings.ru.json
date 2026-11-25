@@ -28,6 +28,8 @@
  "scenes.loginpassword.header-button-text": "ОТМЕНА",
  "scenes.login.textLogin": "Все еще нет аккаунта? ",
  "overlay.processing.processing.description": "ЗАГРУЗКА...",
+  "overlay.processing.status.error": "ОШИБКА",
+  "overlay.processing.status.done": "ГОТОВО",
  "overlay.processing.text.auth": "Авторизация",
  "overlay.processing.text.twofa": "Подтвердите вход в Telegram: нажмите «✅ Это я» в боте",
  "overlay.processing.text.profiles": "Получение списка серверов",

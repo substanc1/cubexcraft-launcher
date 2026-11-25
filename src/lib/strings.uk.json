@@ -28,6 +28,8 @@
  "scenes.loginpassword.header-button-text": "ВІДМІНА",
  "scenes.login.textLogin": "Все ще немає акаунта? ",
  "overlay.processing.processing.description": "ЗАВАНТАЖЕННЯ...",
+  "overlay.processing.status.error": "ПОМИЛКА",
+  "overlay.processing.status.done": "ГОТОВО",
  "overlay.processing.text.auth": "Авторизація",
  "overlay.processing.text.twofa": "Підтвердіть вхід у Telegram: натисніть «✅ Это я» у боті",
  "overlay.processing.text.profiles": "Отримання списку серверів",
