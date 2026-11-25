@@ -364,7 +364,7 @@
               <div class="sm-heroDesc"><span>{selected.info || ''}</span></div>
               <div class="sm-onlineBox">
                 <div class="sm-onlineRow">
-                  <span class="sm-onlineValue">{selPing ? selPing.online : '—'}</span>
+                  <span class="sm-onlineValue">{selPing ? selPing.online : '–'}</span>
                   <span class="sm-onlineMax">{selPing ? '/ ' + selPing.max : ''}</span>
                 </div>
                 <div class="sm-onlineCaption">{t('scenes.servermenu.onlineCaption')}</div>
