@@ -3,6 +3,7 @@
   // (MessageManager.initDialogInScene -> scene.disable()), 600px, рамка + отступ 14.
   import { app, t } from '../lib/app.svelte.js';
   import IconButton from './IconButton.svelte';
+  import Rich from '../lib/Rich.svelte';
   import { popIn, popOut } from '../lib/transitions.js';
 
   function close(fn) {
@@ -26,7 +27,7 @@
         <span class="dlg-close"><IconButton glyph="✕" kind="close" tip={t('dialogs.apply.close-dialogTooltip')} onclick={() => close()} /></span>
       </div>
       <div class="dlg-body">
-        <div class="dlg-text">{d.text}</div>
+        <div class="dlg-text"><Rich text={d.text} /></div>
         <div class="dlg-actions">
           {#if d.kind === 'info'}
             <button type="button" class="dlg-btn apply" onclick={() => close(d.onApply || (() => {}))}>{t('dialogs.info.info-button')}</button>

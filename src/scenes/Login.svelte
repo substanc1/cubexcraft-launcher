@@ -5,6 +5,7 @@
   import { call } from '../lib/backend.js';
   import { onMount } from 'svelte';
   import IconButton from '../components/IconButton.svelte';
+  import Rich from '../lib/Rich.svelte';
   import Checkbox from '../components/Checkbox.svelte';
   import CutButton from '../components/CutButton.svelte';
   import { tooltip } from '../lib/tooltip.js';
@@ -134,7 +135,7 @@
         <span class="lg-heading lg-ghostRed">{t('scenes.login.heading')}</span>
         <span class="lg-heading lg-main">{t('scenes.login.heading')}</span>
       </div>
-      <div class="lg-subheading">{t('scenes.login.subheading')}</div>
+      <div class="lg-subheading"><Rich text={t('scenes.login.subheading')} /></div>
 
       <div class="lg-content">
         <label class="lg-field lg-login">

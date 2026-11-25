@@ -7,6 +7,7 @@
   import { i18n, LOCALES, dateLocale, langCode } from '../lib/i18n.svelte.js';
   import { play, verifyBuild } from '../lib/play.js';
   import IconButton from '../components/IconButton.svelte';
+  import Rich from '../lib/Rich.svelte';
   import CutButton from '../components/CutButton.svelte';
   import Avatar from '../components/Avatar.svelte';
   import AccountMenu from '../components/AccountMenu.svelte';
@@ -340,7 +341,7 @@
                     {#if newsSeenPrev != null && Number(n.id) > newsSeenPrev}<span class="sm-badgeNew">{t('scenes.servermenu.newsNew')}</span>{/if}
                   </div>
                   <div class="sm-articleTitle">{n.title}</div>
-                  <div class="sm-articleBody">{n.body}</div>
+                  <div class="sm-articleBody"><Rich text={n.body} /></div>
                 </div>
               </article>
             {:else}
@@ -361,7 +362,7 @@
                 <span class="sm-heroChip">{selected.version}</span>
                 {#if prop(selected, 'mode')}<span class="sm-heroChip">{prop(selected, 'mode')}</span>{/if}
               </div>
-              <div class="sm-heroDesc"><span>{selected.info || ''}</span></div>
+              <div class="sm-heroDesc"><span><Rich text={selected.info || ''} /></span></div>
               <div class="sm-onlineBox">
                 <div class="sm-onlineRow">
                   <span class="sm-onlineValue">{selPing ? selPing.online : '–'}</span>
@@ -446,7 +447,7 @@
           {#if vote}
             <button type="button" class="sm-vote" onclick={() => call('open_url', { url: vote.url })} data-no-drag>
               <span class="sm-voteTitle">{t('scenes.servermenu.vote')}</span>
-              {#if vote.reward > 0}<span class="sm-voteReward">{t('scenes.servermenu.voteReward').replace('{n}', vote.reward)}</span>{/if}
+              {#if vote.reward > 0}<span class="sm-voteReward"><Rich text={t('scenes.servermenu.voteReward').replace('{n}', vote.reward)} /></span>{/if}
             </button>
           {/if}
           {#if nav !== 'news'}
@@ -457,7 +458,7 @@
                 <span class="sm-newsText">
                   <span class="sm-newsDate">{newsDate(n.date)}</span>
                   <span class="sm-newsTitle">{n.title}</span>
-                  <span class="sm-newsBody">{n.body}</span>
+                  <span class="sm-newsBody"><Rich text={n.body} /></span>
                 </span>
               </button>
             {:else}

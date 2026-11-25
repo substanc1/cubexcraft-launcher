@@ -2,6 +2,7 @@
   // уведомления: колонка справа (10px от краёв), снизу вверх, между карточками 10px;
   // карточка .notification 360px, иконка-колокольчик 48x48, заголовок/текст (components.css)
   import { app } from '../lib/app.svelte.js';
+  import Rich from '../lib/Rich.svelte';
 </script>
 
 <div class="notifications">
@@ -16,7 +17,7 @@
       </div>
       <div class="body">
         <div class="heading">{n.head}</div>
-        <div class="text">{n.message}</div>
+        <div class="text"><Rich text={n.message} /></div>
       </div>
     </div>
   {/each}

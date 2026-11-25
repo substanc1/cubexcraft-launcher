@@ -143,3 +143,7 @@ img { display: block; -webkit-user-drag: none; }
   background: var(--border-dark); cursor: default;
 }
 .fx-thumb:hover, .fx-thumb.pressed { background: var(--red); }
+
+.acc-neon{color:#fcee0a;text-shadow:0 0 8px rgba(252,238,10,.28)}
+.acc-b{color:#fff;font-weight:700}
+.noFx .acc-neon{text-shadow:none}

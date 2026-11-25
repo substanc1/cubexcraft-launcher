@@ -7,6 +7,7 @@
   import IconButton from '../components/IconButton.svelte';
   import { tooltip } from '../lib/tooltip.js';
   import { fxscroll } from '../lib/fxscroll.js';
+  import Rich from '../lib/Rich.svelte';
 
   const s = app.settings;
   const OPTIONS = [
@@ -103,7 +104,7 @@
               </button>
               <div class="st-texts">
                 <span class="st-lh">{t(`scenes.settings.properties.${lang}.name`, lang)}</span>
-                <span class="st-ld">{t(`scenes.settings.properties.${lang}.description`, lang)}</span>
+                <span class="st-ld"><Rich text={t(`scenes.settings.properties.${lang}.description`, lang)} /></span>
               </div>
             </div>
           {/each}
@@ -156,7 +157,7 @@
               </div>
               <div class="st-texts">
                 <span class="st-lh">{t(`scenes.settings.properties.color.${key}.name`, key)}</span>
-                <span class="st-ld">{t(`scenes.settings.properties.color.${key}.description`, '')}</span>
+                <span class="st-ld"><Rich text={t(`scenes.settings.properties.color.${key}.description`, '')} /></span>
               </div>
             </div>
           {/each}

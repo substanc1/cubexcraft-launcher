@@ -69,7 +69,7 @@
 </script>
 
 {#if ready}
-  <div class="window" class:freeze={import.meta.env.DEV && new URLSearchParams(location.search).has('freeze')} style="width:{WINDOW_SIZE[0]}px;height:{WINDOW_SIZE[1]}px;zoom:{fit}">
+  <div class="window" class:noFx={app.settings && app.settings.reduceEffects} class:freeze={import.meta.env.DEV && new URLSearchParams(location.search).has('freeze')} style="width:{WINDOW_SIZE[0]}px;height:{WINDOW_SIZE[1]}px;zoom:{fit}">
     <div class="sceneWrap" class:blurred={app.blurred} class:calm={app.settings && app.settings.reduceEffects}>
       <!-- каждый экран - свой слой: новый проявляется поверх старого (lib/transitions.js) -->
       {#key app.scene + ':' + app.sceneNonce}
