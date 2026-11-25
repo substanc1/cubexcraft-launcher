@@ -27,10 +27,10 @@ const RU_LABEL_OK = new Set(['overlay.processing.text.twofa']);
 // Разрешённая кириллица в коде. Причина у каждой записи.
 // file - путь от корня, match - подстрока строки (после trim), reason - почему это не строка интерфейса.
 const ALLOW = [
-  { file: 'src/lib/backend.js', match: "info: 'CubeXTech — приватный сервер", reason: 'моковое описание сервера (режим без ядра)' },
+  { file: 'src/lib/backend.js', match: "info: 'Технический сервер ==CubeXTech==", reason: 'моковое описание сервера (режим без ядра)' },
   { file: 'src/lib/backend.js', match: "title: 'CubeXCraft теперь на телефоне'", reason: 'моковая новость' },
   { file: 'src/lib/backend.js', match: "title: 'Скидки в честь открытия", reason: 'моковая новость' },
-  { file: 'src/lib/backend.js', match: "title: 'Голосуй за проект", reason: 'моковая новость' },
+  { file: 'src/lib/backend.js', match: "title: 'Голосуйте за проект", reason: 'моковая новость' },
   { file: 'src/scenes/Login.svelte', match: "call('timing_mark', { what: 'меню серверов показано' })", reason: 'внутренняя метка замера, в интерфейс не выводится' },
 ];
 
