@@ -42,7 +42,7 @@ const mockProfiles = [
     title: 'CubeXTech',
     version: '1.21.1',
     dir: 'CubeXCraft',
-    info: 'CubeXTech — приватный сервер на NeoForge 1.21.1. Проект находится в стадии активной разработки: дорабатываем моды, механики и лаунчер перед первым публичным запуском.',
+    info: 'Технический сервер ==CubeXTech== на Minecraft **1.21.1**. Проект в активной разработке: доводим моды, механики и лаунчер до первого публичного запуска.',
     servers: [{ name: 'CubeXCraft', serverAddress: 'play.cubexcraft.site', serverPort: 25565 }],
     properties: {},
   },
@@ -146,9 +146,9 @@ const mock = {
     const c = n => 'https://www.cubexcraft.site/news/' + n + '.jpg';
     return {
       news: [
-        { id: 5, title: 'CubeXCraft теперь на телефоне', body: 'Играй в CubeXTech со смартфона — тем же аккаунтом и на тех же серверах, что и с ПК.\n\nAndroid — приложение CubeX Mobile (бета).', cover: c('mobile-launcher'), date: '2026-10-25T18:30:00Z' },
+        { id: 5, title: 'CubeXCraft теперь на телефоне', body: 'Играйте в CubeXTech со смартфона: тот же аккаунт и те же серверы, что и на ПК.\n\nДля Android есть приложение CubeX Mobile (бета).', cover: c('mobile-launcher'), date: '2026-10-25T18:30:00Z' },
         { id: 4, title: 'Скидки в честь открытия: −20 % до 8 ноября', body: 'В магазине −20 % на ранги, наборы, команды, косметику и загрузчики чанков.', cover: c('opening-sale'), date: '2026-10-25T18:29:00Z' },
-        { id: 2, title: 'Голосуй за проект — 12 CX за каждый голос', body: 'Голос на мониторинге поднимает CubeXCraft в топе.', cover: null, date: '2026-10-25T18:27:00Z' },
+        { id: 2, title: 'Голосуйте за проект: 12 CX за каждый голос', body: 'Голос на мониторинге поднимает CubeXCraft в топе.', cover: null, date: '2026-10-25T18:27:00Z' },
       ],
       vote: { url: 'https://www.cubexcraft.site/vote', reward: 12, sites: 3 },
     };
