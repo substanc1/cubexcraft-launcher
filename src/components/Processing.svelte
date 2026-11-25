@@ -40,12 +40,9 @@
           <img src={logo} alt="" height="20" />
           <span class="brand">CUBEXCRAFT</span>
           <span class="sep"></span>
-          <span class="headerText" class:error={app.processing.error} class:done={app.processing.done}>{app.processing.error ? t('overlay.processing.status.error') : app.processing.done ? t('overlay.processing.status.done') : t('overlay.processing.processing.description')}</span>
+          <span class="headerText">{t('overlay.processing.processing.description')}</span>
         </div>
-        <div class="bar">
-          {#if app.processing.done}<div class="fill"></div>
-          {:else if !app.processing.error}<div class="run"></div>{/if}
-        </div>
+        <div class="bar"><div class="run"></div></div>
         <div class="description" class:error={app.processing.error}>{app.processing.text}</div>
         {#if !app.processing.error && (app.processing.until || app.processing.onCancel)}
           <div class="waitRow">
@@ -137,20 +134,6 @@
     background: var(--red);
     box-shadow: 0 0 16px var(--glow-color);
     animation: run 1.4s ease-in-out infinite;
-  }
-  .headerText.error {
-    color: var(--red);
-  }
-  .headerText.done {
-    color: var(--green);
-  }
-  .fill {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: var(--green);
   }
   @keyframes run {
     0% {

@@ -28,8 +28,6 @@
  "scenes.loginpassword.header-button-text": "ANULUJ",
  "scenes.login.textLogin": "Wciąż nie masz konta? ",
  "overlay.processing.processing.description": "ŁADOWANIE...",
-  "overlay.processing.status.error": "BŁĄD",
-  "overlay.processing.status.done": "GOTOWE",
  "overlay.processing.text.auth": "Autoryzacja",
  "overlay.processing.text.twofa": "Potwierdź logowanie w Telegramie: naciśnij «✅ Это я» w bocie",
  "overlay.processing.text.profiles": "Pobieranie listy serwerów",

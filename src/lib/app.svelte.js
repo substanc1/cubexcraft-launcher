@@ -14,7 +14,7 @@ export const app = $state({
   profiles: [],
   selected: null,
   javaVersion: '21',
-  processing: { visible: false, text: '', error: false, done: false, until: null, onCancel: null },
+  processing: { visible: false, text: '', error: false, until: null, onCancel: null },
   notifications: [],
   dialog: null, // { kind: 'apply'|'info', header, text, onApply, onDeny }
   blurred: false,
@@ -53,7 +53,7 @@ let processingUse = 0;
 export async function processRequest(text, promise, { onError, until, onCancel } = {}) {
   processingUse++;
   const show = () => {
-    app.processing = { visible: true, text, error: false, done: false, until: until || null, onCancel: onCancel || null };
+    app.processing = { visible: true, text, error: false, until: until || null, onCancel: onCancel || null };
     app.blurred = true;
   };
   let timer = null;
@@ -62,10 +62,6 @@ export async function processRequest(text, promise, { onError, until, onCancel }
   try {
     const r = await promise;
     clearTimeout(timer);
-    if (app.processing.visible) {
-      app.processing = { ...app.processing, error: false, done: true };
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
     if (--processingUse === 0) hideProcessing();
     return r;
   } catch (e) {

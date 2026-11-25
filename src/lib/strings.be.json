@@ -28,8 +28,6 @@
  "scenes.loginpassword.header-button-text": "СКАСАВАЦЬ",
  "scenes.login.textLogin": "Усё яшчэ няма акаунта? ",
  "overlay.processing.processing.description": "ЗАГРУЗКА...",
-  "overlay.processing.status.error": "ПАМЫЛКА",
-  "overlay.processing.status.done": "ГАТОВА",
  "overlay.processing.text.auth": "Аўтарызацыя",
  "overlay.processing.text.twofa": "Пацвердзіце ўваход у Telegram: націсніце «✅ Это я» у боце",
  "overlay.processing.text.profiles": "Атрыманне спісу сервераў",

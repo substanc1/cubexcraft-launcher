@@ -28,8 +28,6 @@
  "scenes.loginpassword.header-button-text": "CANCEL",
  "scenes.login.textLogin": "Still no account? ",
  "overlay.processing.processing.description": "LOADING...",
-  "overlay.processing.status.error": "ERROR",
-  "overlay.processing.status.done": "DONE",
  "overlay.processing.text.auth": "Log-in",
  "overlay.processing.text.twofa": "Confirm sign-in in Telegram: tap «✅ Это я» in the bot",
  "overlay.processing.text.profiles": "Getting a list of servers",
